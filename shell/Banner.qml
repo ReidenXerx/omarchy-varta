@@ -23,6 +23,15 @@ Scope {
   // one actually started, so the wording never pretends otherwise.
   property int seconds: 0
 
+  // The edge pulses to catch your eye, then stops.
+  //
+  // An alert can stand for hours. Sixty frames a second of moving pixels for
+  // that long costs real battery, and a band that has been pulsing since
+  // midnight has become wallpaper anyway — the movement has done its job in the
+  // first minute or it never will. After that the band simply stays, which is
+  // the part that actually matters.
+  readonly property bool catching: banner.seconds < 60
+
   Timer {
     interval: 1000
     repeat: true
@@ -78,10 +87,11 @@ Scope {
           color: banner.rehearsing ? "#60A5FA" : banner.raised ? "#F87171" : "#FBBF24"
 
           SequentialAnimation on opacity {
-            running: true
+            running: banner.catching
             loops: Animation.Infinite
             NumberAnimation { from: 0.35; to: 1; duration: 700; easing.type: Easing.InOutSine }
             NumberAnimation { from: 1; to: 0.35; duration: 700; easing.type: Easing.InOutSine }
+            onStopped: parent.opacity = 1
           }
         }
 

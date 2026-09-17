@@ -49,6 +49,21 @@ Item {
   // Three answers, not two: true, false, and "I cannot see". The third is why
   // this plugin exists.
   property bool rehearsing: false
+
+  // True for the first minute of an alert, which is how long movement is worth
+  // its cost on a battery.
+  property bool freshlyRaised: false
+
+  onRaisedChanged: {
+    service.freshlyRaised = service.raised
+    if (service.raised) newsworthy.restart(); else newsworthy.stop()
+  }
+
+  Timer {
+    id: newsworthy
+    interval: 60000
+    onTriggered: service.freshlyRaised = false
+  }
   readonly property bool raised: service.reading.alert === true || service.rehearsing
   readonly property bool calm: service.reading.alert === false
   readonly property string since: String(service.reading.since || "")

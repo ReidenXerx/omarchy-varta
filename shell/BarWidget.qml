@@ -130,8 +130,10 @@ BarWidget {
 
         // An alert breathes, so it is not something you can look straight at
         // without registering.
+        // Same reasoning as the banner: the breathing is to be noticed, and it
+        // has been noticed or it has not within the first minute.
         SequentialAnimation on opacity {
-          running: root.raised || root.blind
+          running: (root.raised && root.varta && root.varta.freshlyRaised) || root.blind
           loops: Animation.Infinite
           NumberAnimation { from: 1; to: 0.42; duration: 620; easing.type: Easing.InOutSine }
           NumberAnimation { from: 0.42; to: 1; duration: 620; easing.type: Easing.InOutSine }
