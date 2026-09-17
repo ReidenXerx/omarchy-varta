@@ -76,12 +76,12 @@ def fetch(url: str) -> tuple[frozenset[str], dt.datetime | None, list[str]]:
     return alerting, source_time, sorted(states)
 
 
-def run(region: str, every: int, once: bool) -> int:
+def run(region: str, every: int, once: bool, feed: str = FEED) -> int:
     watch = Watch(region=region)
     while True:
         now = dt.datetime.now(dt.timezone.utc)
         try:
-            alerting, source_time, _ = fetch(FEED)
+            alerting, source_time, _ = fetch(feed)
             watch.observe(Reading(fetched_at=now, source_time=source_time, alerting=alerting))
             error = None
         except Exception as problem:            # any failure is the same to a reader
@@ -106,11 +106,13 @@ def main() -> int:
                         help="seconds between polls (the feed refreshes about this often)")
     parser.add_argument("--once", action="store_true", help="one reading, then exit")
     parser.add_argument("--list", action="store_true", help="print the region names the feed uses")
+    parser.add_argument("--feed", default=FEED,
+                        help="where to read from; for proving what happens when it cannot be read")
     args = parser.parse_args()
 
     if args.list:
         try:
-            alerting, _, names = fetch(FEED)
+            alerting, _, names = fetch(args.feed)
         except Exception as problem:
             print(f"could not reach the feed: {problem}", file=sys.stderr)
             return 1
@@ -122,7 +124,7 @@ def main() -> int:
         parser.error("--region is required (use --list to see the names)")
     if args.every < 30:
         parser.error("polling faster than every 30s gets the feed to refuse us")
-    return run(args.region, args.every, args.once)
+    return run(args.region, args.every, args.once, args.feed)
 
 
 if __name__ == "__main__":

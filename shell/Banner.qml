@@ -137,9 +137,11 @@ Scope {
             }
 
             Text {
+              // Only ever about this oblast. What the rest of the country is
+              // doing is not something to put in front of someone who is
+              // deciding whether to move.
               text: banner.raised
                     ? "seen for " + banner.spoken(banner.seconds)
-                      + " · " + (banner.service ? banner.service.alertingCount : 0) + " regions alerting"
                     : (banner.service && banner.service.trouble
                        ? banner.service.trouble
                        : "no reading for several minutes")
