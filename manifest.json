@@ -33,7 +33,7 @@
       "region": "Detect automatically",
       "sound": true,
       "repeatEvery": 45,
-      "voice": "Bell"
+      "voice": "Glass"
     },
     "schema": [
       {
@@ -84,12 +84,12 @@
         "type": "enum",
         "label": "Sound",
         "options": [
+          "Glass",
           "Bell",
-          "Marimba",
-          "Glass"
+          "Marimba"
         ],
-        "defaultValue": "Bell",
-        "description": "Struck tones rather than beeps, meant to be noticed without raising your pulse. Bell is warm and round, Marimba is the shortest and softest, Glass rings the longest."
+        "defaultValue": "Glass",
+        "description": "Struck tones rather than beeps, meant to be noticed without raising your pulse. Glass rings longest, Bell is warm and round, Marimba is the shortest and softest."
       },
       {
         "key": "repeatEvery",

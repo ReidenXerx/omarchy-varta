@@ -26,7 +26,7 @@ Item {
   readonly property string chosen: String(service.setting("region", "Detect automatically"))
   readonly property bool soundOn: service.setting("sound", true) !== false
   readonly property int repeatEvery: Number(service.setting("repeatEvery", 45))
-  readonly property string voice: String(service.setting("voice", "Bell")).toLowerCase()
+  readonly property string voice: String(service.setting("voice", "Glass")).toLowerCase()
 
   // Left on detect, the region comes from one lookup; choose one from the list
   // and the lookup never happens.
@@ -48,7 +48,8 @@ Item {
   readonly property bool watching: service.health === "ok"
   // Three answers, not two: true, false, and "I cannot see". The third is why
   // this plugin exists.
-  readonly property bool raised: service.reading.alert === true
+  property bool rehearsing: false
+  readonly property bool raised: service.reading.alert === true || service.rehearsing
   readonly property bool calm: service.reading.alert === false
   readonly property string since: String(service.reading.since || "")
   readonly property int alertingCount: Number(service.reading.alerting_count || 0)
@@ -155,6 +156,46 @@ Item {
   // On screen for an alert here, and for having gone blind — those are the two
   // states you must not be allowed to keep working through unaware. A brief
   // stale patch stays in the bar, where it belongs.
+  // Run it when you want to know it works, rather than finding out during an
+  // attack. Everything the real thing does — banner, sound, repeat — with the
+  // word ТЕСТ on it throughout, because a rehearsal nobody can tell from the
+  // real thing is its own kind of harm.
+  IpcHandler {
+    target: "varta"
+
+    function test(): string {
+      if (service.rehearsing) return "already running"
+      service.rehearsing = true
+      rehearsal.restart()
+      return "rehearsing for " + Math.round(rehearsal.interval / 1000) + "s"
+    }
+
+    function stop(): string {
+      service.rehearsing = false
+      rehearsal.stop()
+      return "stopped"
+    }
+
+    function status(): string {
+      return JSON.stringify({
+        region: service.region,
+        chosen: service.chosen,
+        detection: service.detectionState,
+        health: service.health,
+        alert: service.reading.alert === undefined ? null : service.reading.alert,
+        alertingCount: service.alertingCount,
+        sourceAgeSeconds: service.sourceAge,
+        rehearsing: service.rehearsing,
+      })
+    }
+  }
+
+  Timer {
+    id: rehearsal
+    interval: 20000
+    onTriggered: service.rehearsing = false
+  }
+
   Loader {
     active: service.raised || (service.region !== "" && service.health === "blind")
     source: Qt.resolvedUrl("Banner.qml")

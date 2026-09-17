@@ -16,6 +16,7 @@ Scope {
   property var service: null
 
   readonly property bool raised: banner.service ? banner.service.raised : false
+  readonly property bool rehearsing: banner.service ? banner.service.rehearsing : false
   readonly property string region: banner.service ? banner.service.region : ""
 
   // How long this app has been seeing the alert. The free feed cannot say when
@@ -66,7 +67,7 @@ Scope {
 
       Rectangle {
         anchors.fill: parent
-        color: banner.raised ? "#7F1D1D" : "#4A3407"
+        color: banner.rehearsing ? "#1E3A5F" : banner.raised ? "#7F1D1D" : "#4A3407"
         opacity: 0.97
 
         // A slow pulse along the edge: movement in the corner of your eye is
@@ -74,7 +75,7 @@ Scope {
         Rectangle {
           anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
           height: 4
-          color: banner.raised ? "#F87171" : "#FBBF24"
+          color: banner.rehearsing ? "#60A5FA" : banner.raised ? "#F87171" : "#FBBF24"
 
           SequentialAnimation on opacity {
             running: true
@@ -97,7 +98,8 @@ Scope {
             spacing: 2
 
             Text {
-              text: banner.raised ? "ПОВІТРЯНА ТРИВОГА" : "ТРИВОГИ НЕ ВИДНО"
+              text: banner.rehearsing ? "ТЕСТ · ПОВІТРЯНА ТРИВОГА"
+                  : banner.raised ? "ПОВІТРЯНА ТРИВОГА" : "ТРИВОГИ НЕ ВИДНО"
               color: "#FFF7ED"
               font.family: Style.font.family
               font.pixelSize: 27
@@ -106,7 +108,8 @@ Scope {
             }
 
             Text {
-              text: banner.raised ? "Air raid alert · take shelter"
+              text: banner.rehearsing ? "This is a test of the alert — no alert is in progress"
+                  : banner.raised ? "Air raid alert · take shelter"
                                   : "Not watching · this app cannot see the feed"
               color: "#FDE8D7"
               font.family: Style.font.family
