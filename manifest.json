@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "id": "reidenxerx.varta",
+  "name": "Varta",
+  "version": "0.1.0",
+  "author": "ReidenXerx",
+  "license": "MIT",
+  "description": "An air raid alert watch for the Ukrainian alert feed, in your bar and across your screen. Picks your oblast, shows a band over everything the moment it goes under alert, and — the part that matters — says just as loudly when it has stopped being able to see the feed. A companion to the official app and the sirens, never a replacement.",
+  "kinds": [
+    "service",
+    "bar-widget"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "shell/Service.qml",
+    "barWidget": "shell/BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Varta",
+    "description": "Air raid alerts for your oblast, with an honest 'not watching' state",
+    "category": "System",
+    "aliases": [
+      "varta",
+      "alert",
+      "alarm",
+      "air raid",
+      "тривога",
+      "повітряна"
+    ],
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "region": "Detect automatically",
+      "sound": true,
+      "repeatEvery": 45,
+      "voice": "Bell"
+    },
+    "schema": [
+      {
+        "key": "region",
+        "type": "enum",
+        "label": "Your region",
+        "options": [
+          "Detect automatically",
+          "Івано-Франківська область",
+          "Волинська область",
+          "Вінницька область",
+          "Дніпропетровська область",
+          "Донецька область",
+          "Житомирська область",
+          "Закарпатська область",
+          "Запорізька область",
+          "Київська область",
+          "Кіровоградська область",
+          "Луганська область",
+          "Львівська область",
+          "Миколаївська область",
+          "Одеська область",
+          "Полтавська область",
+          "Рівненська область",
+          "Севастополь",
+          "Сумська область",
+          "Тернопільська область",
+          "Харківська область",
+          "Херсонська область",
+          "Хмельницька область",
+          "Черкаська область",
+          "Чернівецька область",
+          "Чернігівська область",
+          "м. Київ"
+        ],
+        "defaultValue": "Detect automatically",
+        "description": "The oblast to watch. Left on detect, this asks two public services once where your address appears to be and only believes an answer both give — pick your region here instead and it never asks at all. The feed reports whole oblasts, so an alert does not mean an alert over your street."
+      },
+      {
+        "key": "sound",
+        "type": "boolean",
+        "label": "Play a sound",
+        "defaultValue": true,
+        "description": "A short electronic figure, deliberately unlike a real siren so you never have to work out which you heard."
+      },
+      {
+        "key": "voice",
+        "type": "enum",
+        "label": "Sound",
+        "options": [
+          "Bell",
+          "Marimba",
+          "Glass"
+        ],
+        "defaultValue": "Bell",
+        "description": "Struck tones rather than beeps, meant to be noticed without raising your pulse. Bell is warm and round, Marimba is the shortest and softest, Glass rings the longest."
+      },
+      {
+        "key": "repeatEvery",
+        "type": "integer",
+        "label": "Repeat the sound every",
+        "min": 15,
+        "max": 600,
+        "step": 15,
+        "defaultValue": 45,
+        "description": "Seconds between repeats while an alert stands. The first one can be missed."
+      }
+    ]
+  }
+}

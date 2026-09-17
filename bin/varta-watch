@@ -1,0 +1,132 @@
+#!/usr/bin/python3
+"""Watch the air raid feed and report what is known, once per poll.
+
+Prints one JSON object per line on stdout, so whatever is reading it — the
+shell plugin, a terminal, a script — sees every reading rather than a file it
+has to guess the freshness of. If this process dies, its reader notices at once;
+that is the point of streaming rather than writing state to disk.
+
+Polite by design. The feed is a free service run by somebody else: it refreshes
+its cache about once a minute and rate-limits hard (a burst of requests earns a
+429, which would keep this blind for longer than simply waiting). So it asks
+once a minute, backs off when refused, and identifies itself.
+"""
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import pathlib
+import sys
+import time
+import urllib.error
+import urllib.request
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "app"))
+from watchcore import Reading, Watch, backoff  # noqa: E402
+
+FEED = "https://ubilling.net.ua/aerialalerts/"
+AGENT = "omarchy-varta/1.0 (+https://github.com/ReidenXerx/omarchy-varta)"
+TIMEOUT = 15
+# The feed answers in about 4 KB. Anything wildly larger is not the feed.
+CEILING = 256 * 1024
+
+
+def fetch(url: str) -> tuple[frozenset[str], dt.datetime | None, list[str]]:
+    """One request, everything the caller could want from it.
+
+    One request, because asking twice for the same page is how a caller earns
+    the 429 it then has to wait out.
+    """
+    request = urllib.request.Request(url, headers={
+        "User-Agent": AGENT,
+        "Accept": "application/json",
+    })
+    try:
+        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+            if response.status != 200:
+                raise RuntimeError(f"HTTP {response.status}")
+            raw = response.read(CEILING + 1)
+    except urllib.error.HTTPError as problem:
+        if problem.code == 429:
+            raise RuntimeError("feed refused us for asking too often (429)") from None
+        raise RuntimeError(f"HTTP {problem.code}") from None
+    if len(raw) > CEILING:
+        raise RuntimeError("response too large to be the feed")
+
+    payload = json.loads(raw.decode("utf-8"))
+    states = payload.get("states")
+    if not isinstance(states, dict) or not states:
+        raise RuntimeError("feed carried no regions")
+
+    alerting = frozenset(
+        name for name, value in states.items()
+        if isinstance(value, dict) and value.get("alertnow") is True
+    )
+
+    # The cache stamp is local Kyiv time, without an offset.
+    source_time = None
+    stamp = payload.get("cachedat")
+    if isinstance(stamp, str):
+        try:
+            naive = dt.datetime.strptime(stamp, "%Y-%m-%d %H:%M:%S")
+            source_time = naive.astimezone()
+        except ValueError:
+            source_time = None
+    return alerting, source_time, sorted(states)
+
+
+def run(region: str, every: int, once: bool) -> int:
+    watch = Watch(region=region)
+    while True:
+        now = dt.datetime.now(dt.timezone.utc)
+        try:
+            alerting, source_time, _ = fetch(FEED)
+            watch.observe(Reading(fetched_at=now, source_time=source_time, alerting=alerting))
+            error = None
+        except Exception as problem:            # any failure is the same to a reader
+            watch.failed(now)
+            error = f"{type(problem).__name__}: {problem}"[:200]
+
+        line = watch.snapshot(dt.datetime.now(dt.timezone.utc))
+        if error:
+            line["error"] = error
+        print(json.dumps(line, ensure_ascii=False), flush=True)
+
+        if once:
+            return 0 if watch.last_ok else 1
+        time.sleep(every if not watch.consecutive_failures
+                   else backoff(watch.consecutive_failures, base=every))
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--region", help="the region to watch, exactly as the feed names it")
+    parser.add_argument("--every", type=int, default=60,
+                        help="seconds between polls (the feed refreshes about this often)")
+    parser.add_argument("--once", action="store_true", help="one reading, then exit")
+    parser.add_argument("--list", action="store_true", help="print the region names the feed uses")
+    args = parser.parse_args()
+
+    if args.list:
+        try:
+            alerting, _, names = fetch(FEED)
+        except Exception as problem:
+            print(f"could not reach the feed: {problem}", file=sys.stderr)
+            return 1
+        for name in names:
+            print(f"{'ALERT' if name in alerting else '     '}  {name}")
+        return 0
+
+    if not args.region:
+        parser.error("--region is required (use --list to see the names)")
+    if args.every < 30:
+        parser.error("polling faster than every 30s gets the feed to refuse us")
+    return run(args.region, args.every, args.once)
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(130)

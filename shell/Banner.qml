@@ -1,0 +1,168 @@
+import QtQuick
+import Quickshell
+import Quickshell.Wayland
+import qs.Commons
+
+// The band across the top of every screen.
+//
+// Loud but not in the way: it takes no keyboard focus and its mask is empty, so
+// every click and keystroke goes straight through to whatever you were doing.
+// It sits on the overlay layer so a fullscreen game or film does not hide it —
+// which is the one place the usual rule about never covering a fullscreen
+// window has to be inverted.
+Scope {
+  id: banner
+
+  property var service: null
+
+  readonly property bool raised: banner.service ? banner.service.raised : false
+  readonly property string region: banner.service ? banner.service.region : ""
+
+  // How long this app has been seeing the alert. The free feed cannot say when
+  // one actually started, so the wording never pretends otherwise.
+  property int seconds: 0
+
+  Timer {
+    interval: 1000
+    repeat: true
+    running: banner.raised
+    triggeredOnStart: true
+    onTriggered: {
+      const since = banner.service ? banner.service.since : ""
+      if (!since) { banner.seconds = 0; return }
+      const began = new Date(since).getTime()
+      banner.seconds = isNaN(began) ? 0 : Math.max(0, Math.round((Date.now() - began) / 1000))
+    }
+  }
+
+  function spoken(total) {
+    if (total < 60) return "less than a minute"
+    const minutes = Math.floor(total / 60)
+    if (minutes < 60) return minutes + (minutes === 1 ? " minute" : " minutes")
+    const hours = Math.floor(minutes / 60)
+    const rest = minutes % 60
+    return hours + (hours === 1 ? " hour " : " hours ") + rest + "m"
+  }
+
+  Variants {
+    model: Quickshell.screens
+
+    PanelWindow {
+      id: surface
+      required property var modelData
+      screen: surface.modelData
+
+      visible: true
+      color: "transparent"
+      WlrLayershell.namespace: "omarchy-varta"
+      WlrLayershell.layer: WlrLayer.Overlay
+      // Never takes the keyboard, and nothing can be clicked on it: this must
+      // not be something you have to get out of the way of.
+      WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+      exclusionMode: ExclusionMode.Ignore
+      mask: Region {}
+      anchors { top: true; left: true; right: true }
+      implicitHeight: 96
+
+      Rectangle {
+        anchors.fill: parent
+        color: banner.raised ? "#7F1D1D" : "#4A3407"
+        opacity: 0.97
+
+        // A slow pulse along the edge: movement in the corner of your eye is
+        // what a still band cannot do.
+        Rectangle {
+          anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+          height: 4
+          color: banner.raised ? "#F87171" : "#FBBF24"
+
+          SequentialAnimation on opacity {
+            running: true
+            loops: Animation.Infinite
+            NumberAnimation { from: 0.35; to: 1; duration: 700; easing.type: Easing.InOutSine }
+            NumberAnimation { from: 1; to: 0.35; duration: 700; easing.type: Easing.InOutSine }
+          }
+        }
+
+        Row {
+          anchors.verticalCenter: parent.verticalCenter
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.leftMargin: 28
+          anchors.rightMargin: 28
+          spacing: 22
+
+          Column {
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 2
+
+            Text {
+              text: banner.raised ? "ПОВІТРЯНА ТРИВОГА" : "ТРИВОГИ НЕ ВИДНО"
+              color: "#FFF7ED"
+              font.family: Style.font.family
+              font.pixelSize: 27
+              font.weight: Font.Bold
+              font.letterSpacing: 1.2
+            }
+
+            Text {
+              text: banner.raised ? "Air raid alert · take shelter"
+                                  : "Not watching · this app cannot see the feed"
+              color: "#FDE8D7"
+              font.family: Style.font.family
+              font.pixelSize: 14
+            }
+          }
+
+          Rectangle {
+            anchors.verticalCenter: parent.verticalCenter
+            width: 1
+            height: 46
+            color: Qt.rgba(1, 1, 1, 0.22)
+          }
+
+          Column {
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 2
+
+            Text {
+              text: banner.region
+              color: "#FFF7ED"
+              font.family: Style.font.family
+              font.pixelSize: 17
+              font.weight: Font.DemiBold
+            }
+
+            Text {
+              text: banner.raised
+                    ? "seen for " + banner.spoken(banner.seconds)
+                      + " · " + (banner.service ? banner.service.alertingCount : 0) + " regions alerting"
+                    : (banner.service && banner.service.trouble
+                       ? banner.service.trouble
+                       : "no reading for several minutes")
+              color: "#FDE8D7"
+              font.family: Style.font.family
+              font.pixelSize: 13
+            }
+          }
+
+          Item { width: 1; height: 1 }
+        }
+
+        // The thing it is easiest to forget at three in the morning.
+        Text {
+          anchors.right: parent.right
+          anchors.rightMargin: 28
+          anchors.verticalCenter: parent.verticalCenter
+          horizontalAlignment: Text.AlignRight
+          text: banner.raised
+                ? "Unofficial · trust the siren and the official app"
+                : "Check the official app"
+          color: Qt.rgba(1, 1, 1, 0.62)
+          font.family: Style.font.family
+          font.pixelSize: 12
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,105 @@
+#!/usr/bin/python3
+"""Work out which region this machine is in, once, and say how sure it is.
+
+This asks two public services where the IP address appears to be and only
+believes an answer both of them give. A guess this app is not sure of is worse
+than no guess, because the whole point is watching the right place — so an
+uncertain result says so and leaves the choice to the person.
+
+It runs when asked, not on a timer, and only when no region has been set by
+hand. It sends nothing but the request itself; the address is already visible
+to every service the machine talks to. Anyone who would rather not make the
+request at all can simply pick their region from the list — then this never
+runs.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import pathlib
+import sys
+import urllib.request
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "app"))
+from regions import from_iso, from_name  # noqa: E402
+
+TIMEOUT = 10
+CEILING = 64 * 1024
+AGENT = "omarchy-varta/1.0 (+https://github.com/ReidenXerx/omarchy-varta)"
+
+SOURCES = (
+    ("ipwho.is", "https://ipwho.is/"),
+    ("ip-api.com", "http://ip-api.com/json/?fields=status,country,regionName,region,proxy,hosting"),
+)
+
+
+def ask(url: str) -> dict:
+    request = urllib.request.Request(url, headers={"User-Agent": AGENT})
+    with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+        return json.loads(response.read(CEILING).decode("utf-8"))
+
+
+def read(payload: dict) -> tuple[str | None, bool]:
+    """A region name the feed would recognise, and whether the address looks
+    like it is being routed through something."""
+    if payload.get("country") not in ("Ukraine", "UA"):
+        return None, False
+    masked = bool(payload.get("proxy") or payload.get("hosting"))
+    region = from_iso(payload.get("region_code") or payload.get("region", ""))
+    if region is None:
+        region = from_name(payload.get("regionName") or payload.get("region") or "")
+    return region, masked
+
+
+def locate() -> dict:
+    seen, failures, masked = {}, {}, False
+    for name, url in SOURCES:
+        try:
+            payload = ask(url)
+            region, is_masked = read(payload)
+            seen[name] = region
+            masked = masked or is_masked
+        except Exception as problem:
+            failures[name] = f"{type(problem).__name__}: {problem}"[:120]
+
+    answers = {r for r in seen.values() if r}
+    result = {"sources": seen, "failures": failures, "masked": masked}
+
+    if masked:
+        return {**result, "region": None, "confidence": "masked",
+                "why": "the address looks like a VPN or a hosting provider, so where it "
+                       "appears to be is not where you are"}
+    if len(answers) == 1 and len(seen) >= 2 and len([r for r in seen.values() if r]) >= 2:
+        return {**result, "region": answers.pop(), "confidence": "agreed"}
+    if len(answers) == 1:
+        return {**result, "region": answers.pop(), "confidence": "single",
+                "why": "only one service answered, so this is worth checking"}
+    if len(answers) > 1:
+        return {**result, "region": None, "confidence": "disagreed",
+                "why": "the services place this machine in different regions"}
+    return {**result, "region": None, "confidence": "unknown",
+            "why": "no service could place this machine in Ukraine"}
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--json", action="store_true", help="machine-readable output")
+    args = parser.parse_args()
+
+    found = locate()
+    if args.json:
+        print(json.dumps(found, ensure_ascii=False))
+    else:
+        if found["region"]:
+            print(f"{found['region']}  ({found['confidence']})")
+        else:
+            print(f"could not tell: {found.get('why', found['confidence'])}")
+        for name, region in found["sources"].items():
+            print(f"    {name:<12} {region or '—'}")
+        for name, why in found["failures"].items():
+            print(f"    {name:<12} failed: {why}")
+    return 0 if found["region"] else 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())
