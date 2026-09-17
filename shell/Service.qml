@@ -56,6 +56,34 @@ Item {
   readonly property int sourceAge: Number(service.reading.source_age_s || 0)
   readonly property string trouble: String(service.reading.error || "")
 
+  // Starting up is not the same as having lost the feed, and must not look
+  // like it: every shell restart would otherwise flash "NOT WATCHING" at you
+  // for the second before the first reading lands. So the watch is given a
+  // moment to get going, and only complains about going blind once it has
+  // either had a reading to lose or been at it long enough to have failed.
+  property bool everRead: false
+  property bool patient: true
+
+  onWatchingChanged: if (service.watching) service.everRead = true
+
+  Timer {
+    id: grace
+    interval: 90000
+    running: service.region !== "" && service.patient && !service.everRead
+    onTriggered: service.patient = false
+  }
+
+  onRegionChanged: {
+    service.everRead = false
+    service.patient = true
+    grace.restart()
+  }
+
+  // Worth putting on screen: the feed was being read and now is not, or it
+  // never could be and that is no longer a startup hiccup.
+  readonly property bool lost: service.region !== "" && service.health !== "ok"
+                               && (service.everRead || !service.patient)
+
   // Configured but never yet heard from is its own thing: not calm, not an
   // alert, just not started.
   readonly property bool ready: service.region !== "" && service.reading.health !== undefined
@@ -197,7 +225,7 @@ Item {
   }
 
   Loader {
-    active: service.raised || (service.region !== "" && service.health === "blind")
+    active: service.raised || service.lost
     source: Qt.resolvedUrl("Banner.qml")
     onLoaded: if (item) item.service = service
   }

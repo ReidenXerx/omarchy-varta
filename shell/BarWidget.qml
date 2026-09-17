@@ -38,7 +38,9 @@ BarWidget {
   readonly property bool raised: root.varta ? root.varta.raised : false
   readonly property bool calm: root.varta ? root.varta.calm : false
   readonly property string health: root.varta ? root.varta.health : "blind"
-  readonly property bool blind: root.ready && root.health !== "ok"
+  // Only struck through once the watch has something to be blind about.
+  readonly property bool blind: root.varta ? root.varta.lost === true : false
+  readonly property bool settling: root.ready && root.health !== "ok" && !root.blind
 
   readonly property color stateColor: {
     if (!root.ready) return Color.muted
@@ -61,6 +63,7 @@ BarWidget {
                             + " · unofficial, trust the siren and the official app"
     if (root.health === "ok") return "Varta: clear in " + root.varta.region
                                      + " · reading is " + root.varta.sourceAge + "s old"
+    if (root.settling) return "Varta: starting up — waiting for the first reading"
     if (root.health === "stale") return "Varta: NOT WATCHING — the last reading is minutes old"
     return "Varta: NOT WATCHING — " + (root.varta.trouble || "cannot reach the feed")
   }
