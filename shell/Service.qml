@@ -111,6 +111,14 @@ Item {
     } catch (problem) {
       return
     }
+    if (next.resumed) {
+      // The machine slept. Its network is usually a moment behind it, and that
+      // is not the feed being lost — shouting about it every morning is how a
+      // warning becomes something you look past.
+      service.everRead = false
+      service.patient = true
+      grace.restart()
+    }
     const wasRaised = service.raised
     service.reading = next
     if (service.raised && !wasRaised) service.say("alert")

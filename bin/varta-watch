@@ -23,7 +23,7 @@ import urllib.error
 import urllib.request
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "app"))
-from watchcore import Reading, Watch, backoff  # noqa: E402
+from watchcore import Reading, Watch, backoff, plainly  # noqa: E402
 
 FEED = "https://ubilling.net.ua/aerialalerts/"
 AGENT = "omarchy-varta/1.0 (+https://github.com/ReidenXerx/omarchy-varta)"
@@ -76,9 +76,27 @@ def fetch(url: str) -> tuple[frozenset[str], dt.datetime | None, list[str]]:
     return alerting, source_time, sorted(states)
 
 
+def clocks() -> tuple[float, float]:
+    """Awake time, and wall-of-the-machine time.
+
+    CLOCK_MONOTONIC stops while the machine is suspended and CLOCK_BOOTTIME does
+    not, so the difference between how much each advanced is exactly how long
+    the lid was shut.
+    """
+    return (time.clock_gettime(time.CLOCK_MONOTONIC),
+            time.clock_gettime(time.CLOCK_BOOTTIME))
+
+
 def run(region: str, every: int, once: bool, feed: str = FEED) -> int:
     watch = Watch(region=region)
+    awake, booted = clocks()
     while True:
+        now_awake, now_booted = clocks()
+        # A laptop that slept has not "lost the feed" — it has just woken up,
+        # and its network usually has not. Saying so lets the shell hold its
+        # tongue for a moment instead of crying wolf every single morning.
+        slept = (now_booted - booted) - (now_awake - awake)
+        awake, booted = now_awake, now_booted
         now = dt.datetime.now(dt.timezone.utc)
         try:
             alerting, source_time, _ = fetch(feed)
@@ -89,8 +107,13 @@ def run(region: str, every: int, once: bool, feed: str = FEED) -> int:
             error = f"{type(problem).__name__}: {problem}"[:200]
 
         line = watch.snapshot(dt.datetime.now(dt.timezone.utc))
+        if slept > 30:
+            line["resumed"] = True
+            line["slept_s"] = int(slept)
         if error:
-            line["error"] = error
+            # What a person reads, and what whoever has to fix it reads.
+            line["error"] = plainly(error)
+            line["detail"] = error
         print(json.dumps(line, ensure_ascii=False), flush=True)
 
         if once:

@@ -9,7 +9,7 @@ import pathlib
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "app"))
-from watchcore import BLIND, OK, STALE, Reading, Watch, backoff  # noqa: E402
+from watchcore import BLIND, OK, STALE, Reading, Watch, backoff, plainly  # noqa: E402
 
 T0 = dt.datetime(2026, 9, 17, 18, 0, 0, tzinfo=dt.timezone.utc)
 HERE = "Харківська область"
@@ -92,6 +92,20 @@ def test_a_feed_with_no_timestamp_is_still_usable():
     assert snap["health"] == OK
     assert snap["alert"] is True
     assert snap["source_age_s"] is None
+
+
+def test_failures_are_explained_to_a_person_not_a_programmer():
+    # The real text seen on screen when the laptop woke before its wifi did.
+    woke = "URLError: <urlopen error [Errno -3] Temporary failure in name resolution>"
+    assert plainly(woke) == "waiting for the network"
+    assert plainly("RuntimeError: feed refused us for asking too often (429)") \
+        == "the feed asked us to slow down"
+    assert plainly("TimeoutError: timed out") == "the feed is not answering"
+    assert plainly("JSONDecodeError: Expecting value") == "the feed sent something unexpected"
+    assert plainly("") == "cannot read the feed"
+    # Whatever it says, it never says something reassuring.
+    for text in (woke, "boom", "", "HTTP 503"):
+        assert "ok" not in plainly(text).split(), plainly(text)
 
 
 def test_retries_slow_down_but_keep_trying():

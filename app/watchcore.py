@@ -101,6 +101,33 @@ class Watch:
         }
 
 
+def plainly(error: str) -> str:
+    """What to tell a person about a failure.
+
+    The band this ends up on is read by somebody deciding whether to move, at
+    three in the morning, possibly from across a room. "URLError: <urlopen
+    error [Errno -3] Temporary failure in name resolution>" is a sentence for
+    whoever wrote this, not for them.
+    """
+    text = (error or "").lower()
+    if "name resolution" in text or "name or service not known" in text \
+            or "temporary failure" in text or "errno -2" in text or "errno -3" in text:
+        return "waiting for the network"
+    if "429" in text or "too often" in text:
+        return "the feed asked us to slow down"
+    if "timed out" in text or "timeout" in text:
+        return "the feed is not answering"
+    if "refused" in text or "unreachable" in text or "no route" in text:
+        return "cannot reach the feed"
+    if "certificate" in text or "ssl" in text:
+        return "the connection to the feed could not be trusted"
+    if "http 5" in text:
+        return "the feed is having trouble"
+    if "json" in text or "no regions" in text or "too large" in text:
+        return "the feed sent something unexpected"
+    return "cannot read the feed"
+
+
 def backoff(failures: int, base: int = 60, ceiling: int = 300) -> int:
     """How long to wait after a failure.
 
