@@ -87,6 +87,20 @@ BarWidget {
     return "Varta: NOT WATCHING — " + (root.varta.trouble || "cannot reach the feed")
   }
 
+  property bool cardOpen: false
+
+  function wordFor(alert) {
+    if (!root.varta || root.varta.health !== "ok") return "not watching"
+    if (alert === true) return "ПОВІТРЯНА ТРИВОГА"
+    if (alert === false) return "clear"
+    return "unknown"
+  }
+
+  function colourFor(alert) {
+    if (!root.varta || root.varta.health !== "ok") return "#F2B441"
+    return alert === true ? "#F87171" : Color.muted
+  }
+
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
@@ -96,6 +110,7 @@ BarWidget {
     bar: root.bar
     foreground: root.stateColor
     tooltipText: root.tooltip
+    onPressed: function (which) { root.cardOpen = !root.cardOpen }
 
     iconComponent: Component {
       // Drawn rather than typed: a shield needs no font to exist, and the bar
@@ -170,6 +185,159 @@ BarWidget {
           NumberAnimation { from: 0.42; to: 1; duration: 620; easing.type: Easing.InOutSine }
           onStopped: parent.opacity = 1
         }
+      }
+    }
+  }
+
+  // What it knows, and the two things you can do about it. Which regions are
+  // watched is not set here on purpose: those belong in the widget's own
+  // settings, with every other Omarchy widget's options, rather than in a
+  // second place that can disagree with the first.
+  PopupCard {
+    id: card
+    anchorItem: button
+    owner: root
+    bar: root.bar
+    open: root.cardOpen && !!root.varta
+    padding: Style.space(8)
+    contentWidth: card.fittedContentWidth(Style.space(300))
+    contentHeight: card.fittedContentHeight(cardColumn.implicitHeight)
+    onVisibleChanged: if (!visible) root.cardOpen = false
+
+    Column {
+      id: cardColumn
+      anchors.left: parent.left
+      anchors.right: parent.right
+      spacing: Style.space(3)
+
+      Text {
+        width: parent.width
+        text: root.varta && root.varta.health === "ok"
+              ? "Reading is " + root.varta.sourceAge + "s old"
+              : "No current reading"
+        color: Color.muted
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+        bottomPadding: Style.space(3)
+      }
+
+      // Where you are.
+      Row {
+        width: parent.width
+        spacing: Style.space(6)
+        visible: root.ready
+
+        Text {
+          width: parent.width - status.width - Style.space(6)
+          text: root.varta ? root.varta.region : ""
+          elide: Text.ElideRight
+          color: Color.popups.text
+          font.family: Style.font.family
+          font.pixelSize: Style.font.body
+        }
+
+        Text {
+          id: status
+          text: root.varta ? root.wordFor(root.varta.reading.alert) : ""
+          color: root.varta ? root.colourFor(root.varta.reading.alert) : Color.muted
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+          font.weight: Font.DemiBold
+        }
+      }
+
+      // And anywhere you keep an eye on.
+      Repeater {
+        model: root.varta && root.varta.alsoState ? root.varta.alsoState : []
+
+        delegate: Row {
+          required property var modelData
+          width: cardColumn.width
+          spacing: Style.space(6)
+
+          Text {
+            width: cardColumn.width - mark.width - Style.space(6)
+            text: "· " + modelData.region
+            elide: Text.ElideRight
+            color: Color.muted
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+          }
+
+          Text {
+            id: mark
+            text: root.wordFor(modelData.alert)
+            color: root.colourFor(modelData.alert)
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+          }
+        }
+      }
+
+      Text {
+        width: parent.width
+        visible: !root.ready
+        wrapMode: Text.WordWrap
+        text: root.varta && root.varta.detectionState === "asking"
+              ? "Working out which region you are in…"
+              : "No region yet — choose one in this widget's settings."
+        color: Color.muted
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+      }
+
+      Repeater {
+        model: [
+          { label: "Test the alert", action: "test" },
+          { label: "Find my region again", action: "detect" },
+        ]
+
+        delegate: Rectangle {
+          id: entry
+          required property var modelData
+          width: cardColumn.width
+          height: Style.space(30)
+          radius: Style.space(6)
+          color: entryHover.hovered ? Style.hoverFillFor(Color.popups.text, Color.accent)
+                                    : "transparent"
+
+          HoverHandler { id: entryHover }
+
+          Text {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: Style.space(10)
+            anchors.verticalCenter: parent.verticalCenter
+            text: entry.modelData.label
+            elide: Text.ElideRight
+            color: Color.popups.text
+            font.family: Style.font.family
+            font.pixelSize: Style.font.body
+          }
+
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+              if (!root.varta) return
+              if (entry.modelData.action === "test") root.varta.rehearse()
+              else root.varta.findMyRegion()
+              root.cardOpen = false
+            }
+          }
+        }
+      }
+
+      Text {
+        width: parent.width
+        wrapMode: Text.WordWrap
+        topPadding: Style.space(3)
+        text: "Regions live in this widget's settings. Unofficial, and oblast-wide — "
+              + "trust the siren and the official app."
+        color: Color.muted
+        opacity: 0.85
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
       }
     }
   }

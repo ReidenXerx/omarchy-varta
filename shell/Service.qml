@@ -260,12 +260,7 @@ Item {
   IpcHandler {
     target: "varta"
 
-    function test(): string {
-      if (service.rehearsing) return "already running"
-      service.rehearsing = true
-      rehearsal.restart()
-      return "rehearsing for " + Math.round(rehearsal.interval / 1000) + "s"
-    }
+    function test(): string { return service.rehearse() }
 
     function stop(): string {
       service.rehearsing = false
@@ -287,6 +282,13 @@ Item {
         rehearsing: service.rehearsing,
       })
     }
+  }
+
+  function rehearse() {
+    if (service.rehearsing) return "already running"
+    service.rehearsing = true
+    rehearsal.restart()
+    return "rehearsing for " + Math.round(rehearsal.interval / 1000) + "s"
   }
 
   Timer {

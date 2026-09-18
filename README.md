@@ -63,6 +63,21 @@ the lookup never runs.
 | struck through, amber | **not watching** — the feed cannot be read |
 | grey | no region chosen yet |
 
+**Click the shield** for what it knows: how old the reading is, every region it
+is watching and the state of each, and two things worth doing — *Test the alert*
+and *Find my region again*.
+
+**Changing which regions it watches** is done where every Omarchy widget keeps
+its options, not in a second place that can disagree with the first: the
+widget's settings. Either edit the bar with
+[Barber](https://github.com/ReidenXerx/omarchy-barber), or from a terminal:
+
+```bash
+omarchy bar set reidenxerx.varta region "Львівська область"
+omarchy bar set reidenxerx.varta also   "Київська область, Харківська область"
+omarchy-restart-shell     # per-widget options are read at start
+```
+
 ```bash
 # rehearse the whole path for 20 seconds, clearly marked as a test
 qs -p /usr/share/omarchy/shell ipc call varta test
