@@ -16,11 +16,49 @@ Item {
 
   property var shell: null
   property var manifest: null
+  // Settings reach this service two ways, and it needs both.
+  //
+  // The widget hands them over when the shell has them — but the shell reads
+  // per-widget options at start, so `omarchy bar set` writes the file and
+  // nothing happens until a restart. Watching the file directly closes that
+  // gap: however you change your region — Barber, the command line, an editor —
+  // the watch follows within a second. For a safety tool, "you must remember to
+  // restart the shell or it is silently watching the wrong oblast" is not an
+  // acceptable rule.
   property var settings: ({})
+  property var onDisk: ({})
 
   function setting(key, fallback) {
-    const value = service.settings ? service.settings[key] : undefined
+    let value = service.settings ? service.settings[key] : undefined
+    if (value === undefined || value === null || value === "")
+      value = service.onDisk ? service.onDisk[key] : undefined
     return value === undefined || value === null || value === "" ? fallback : value
+  }
+
+  FileView {
+    id: barConfig
+    path: (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config"))
+          + "/omarchy/shell.json"
+    watchChanges: true
+    onFileChanged: barConfig.reload()
+    onLoaded: {
+      let parsed
+      try {
+        parsed = JSON.parse(barConfig.text())
+      } catch (problem) {
+        return
+      }
+      const sections = parsed && parsed.bar && parsed.bar.layout ? parsed.bar.layout : {}
+      for (const section in sections) {
+        for (const entry of (sections[section] || [])) {
+          if (entry && entry.id === "reidenxerx.varta") {
+            service.onDisk = entry
+            return
+          }
+        }
+      }
+      service.onDisk = ({})
+    }
   }
 
   readonly property string chosen: String(service.setting("region", "Detect automatically"))
@@ -180,6 +218,27 @@ Item {
     id: revive
     interval: 5000
     onTriggered: if (service.region !== "") watcher.running = true
+  }
+
+  // Changing where you are must change what is being watched.
+  //
+  // A running process keeps the arguments it started with, so without this the
+  // widget would say one oblast while the watcher reported another — the app
+  // quietly watching the wrong place while looking entirely correct. Of every
+  // way this could fail, that is the worst.
+  readonly property string watchKey: service.region + "\u0000" + service.also.join(",")
+
+  onWatchKeyChanged: {
+    if (!watcher.running) {
+      revive.restart()
+      return
+    }
+    // Drop everything known about the old place before the new one answers.
+    service.reading = ({})
+    service.everRead = false
+    service.patient = true
+    grace.restart()
+    watcher.running = false      // onExited schedules the restart
   }
 
   // ------------------------------------------------------------- where we are
