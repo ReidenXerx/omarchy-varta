@@ -87,8 +87,9 @@ def clocks() -> tuple[float, float]:
             time.clock_gettime(time.CLOCK_BOOTTIME))
 
 
-def run(region: str, every: int, once: bool, feed: str = FEED) -> int:
-    watch = Watch(region=region)
+def run(region: str, others: tuple[str, ...], every: int, once: bool,
+        feed: str = FEED) -> int:
+    watch = Watch(region=region, others=others)
     awake, booted = clocks()
     while True:
         now_awake, now_booted = clocks()
@@ -124,7 +125,9 @@ def run(region: str, every: int, once: bool, feed: str = FEED) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--region", help="the region to watch, exactly as the feed names it")
+    parser.add_argument("--region", help="where you are, exactly as the feed names it")
+    parser.add_argument("--also", default="",
+                        help="other regions to keep an eye on, comma separated")
     parser.add_argument("--every", type=int, default=60,
                         help="seconds between polls (the feed refreshes about this often)")
     parser.add_argument("--once", action="store_true", help="one reading, then exit")
@@ -147,7 +150,8 @@ def main() -> int:
         parser.error("--region is required (use --list to see the names)")
     if args.every < 30:
         parser.error("polling faster than every 30s gets the feed to refuse us")
-    return run(args.region, args.every, args.once, args.feed)
+    others = tuple(name.strip() for name in args.also.split(",") if name.strip())
+    return run(args.region, others, args.every, args.once, args.feed)
 
 
 if __name__ == "__main__":

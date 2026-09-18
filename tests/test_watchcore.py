@@ -108,6 +108,27 @@ def test_failures_are_explained_to_a_person_not_a_programmer():
         assert "ok" not in plainly(text).split(), plainly(text)
 
 
+def test_other_places_are_watched_without_being_shouted_about():
+    w = Watch(region=HERE, others=("Львівська область", "м. Київ"))
+    w.observe(reading(T0, alerting=["Львівська область"]))
+    snap = w.snapshot(T0)
+    assert snap["alert"] is False, "here is clear"
+    assert [a["region"] for a in snap["also"]] == ["Львівська область", "м. Київ"], \
+        "kept in the order they were given"
+    assert snap["also"][0]["alert"] is True
+    assert snap["also"][1]["alert"] is False
+    assert snap["also"][0]["since"] == T0.isoformat(timespec="seconds")
+
+
+def test_a_blind_watch_knows_nothing_about_anywhere():
+    w = Watch(region=HERE, others=("Львівська область",))
+    w.observe(reading(T0, alerting=["Львівська область"]))
+    later = T0 + dt.timedelta(minutes=30)
+    snap = w.snapshot(later)
+    assert snap["alert"] is None
+    assert snap["also"][0]["alert"] is None, "blind about here means blind about there too"
+
+
 def test_retries_slow_down_but_keep_trying():
     assert backoff(0) == 60
     assert backoff(1) == 60

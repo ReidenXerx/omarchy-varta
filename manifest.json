@@ -33,7 +33,10 @@
       "region": "Detect automatically",
       "sound": true,
       "repeatEvery": 45,
-      "voice": "Glass"
+      "voice": "Glass",
+      "also": "",
+      "sayTimes": 3,
+      "fullFor": 180
     },
     "schema": [
       {
@@ -73,6 +76,13 @@
         "description": "The oblast to watch. Left on detect, this asks two public services once where your address appears to be and only believes an answer both give — pick your region here instead and it never asks at all. The feed reports whole oblasts, so an alert does not mean an alert over your street."
       },
       {
+        "key": "also",
+        "type": "string",
+        "label": "Also keep an eye on",
+        "defaultValue": "",
+        "description": "Other regions, comma separated, exactly as they are named in the list above — family, friends, somewhere you are heading. These are shown in the bar and sounded once, quietly. They never put the band on your screen: that is kept for where you actually are."
+      },
+      {
         "key": "sound",
         "type": "boolean",
         "label": "Play a sound",
@@ -94,12 +104,31 @@
       {
         "key": "repeatEvery",
         "type": "integer",
-        "label": "Repeat the sound every",
+        "label": "Say it again every",
         "min": 15,
         "max": 600,
         "step": 15,
         "defaultValue": 45,
-        "description": "Seconds between repeats while an alert stands. The first one can be missed."
+        "description": "Seconds between soundings at the start of an alert. The first one can be missed; the eightieth is just noise."
+      },
+      {
+        "key": "sayTimes",
+        "type": "integer",
+        "label": "How many times to say it",
+        "min": 1,
+        "max": 20,
+        "defaultValue": 3,
+        "description": "An alert can stand for hours. After this many soundings it goes quiet and leaves the band to do the work, until something actually changes."
+      },
+      {
+        "key": "fullFor",
+        "type": "integer",
+        "label": "Keep the band full size for",
+        "min": 15,
+        "max": 1800,
+        "step": 15,
+        "defaultValue": 180,
+        "description": "Seconds before the band shrinks to a slim strip. It stays for the whole alert either way — it just stops taking a tenth of your screen for the second and third hour of it."
       }
     ]
   }

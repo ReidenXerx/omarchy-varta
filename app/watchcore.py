@@ -34,8 +34,14 @@ class Reading:
 
 @dataclass
 class Watch:
-    """What the poller knows, updated reading by reading."""
+    """What the poller knows, updated reading by reading.
+
+    `region` is where you are: the one that earns a band across the screen.
+    `others` are places you are keeping an eye on — family, friends — which are
+    worth knowing about without being interrupted for.
+    """
     region: str
+    others: tuple[str, ...] = ()
     last_ok: Reading | None = None
     last_attempt: dt.datetime | None = None
     consecutive_failures: int = 0
@@ -46,9 +52,10 @@ class Watch:
 
     def observe(self, reading: Reading) -> None:
         previous = self.last_ok.alerting if self.last_ok else frozenset()
-        for region in reading.alerting - previous:
+        watched = {self.region, *self.others}
+        for region in (reading.alerting - previous) & watched:
             self.seen_since[region] = reading.fetched_at
-        for region in previous - reading.alerting:
+        for region in (previous - reading.alerting) & watched:
             self.seen_since.pop(region, None)
         self.last_ok = reading
         self.last_attempt = reading.fetched_at
@@ -77,8 +84,24 @@ class Watch:
             return None
         return now - self.last_ok.source_time
 
+    def alerting_in(self, region: str) -> bool:
+        return bool(self.last_ok and region in self.last_ok.alerting)
+
     def alerting_here(self) -> bool:
-        return bool(self.last_ok and self.region in self.last_ok.alerting)
+        return self.alerting_in(self.region)
+
+    def elsewhere(self, now: dt.datetime) -> list[dict]:
+        """The places being kept an eye on, in the order they were given."""
+        trusted = self.health(now) == OK
+        out = []
+        for region in self.others:
+            since = self.seen_since.get(region)
+            out.append({
+                "region": region,
+                "alert": self.alerting_in(region) if trusted else None,
+                "since": since.isoformat(timespec="seconds") if since else None,
+            })
+        return out
 
     def snapshot(self, now: dt.datetime) -> dict:
         health = self.health(now)
@@ -91,6 +114,7 @@ class Watch:
             # blind watch reports None, not False: not knowing is its own answer.
             "alert": self.alerting_here() if health == OK else None,
             "since": since.isoformat(timespec="seconds") if since else None,
+            "also": self.elsewhere(now),
             "alerting_count": len(self.last_ok.alerting) if self.last_ok else 0,
             "alerting": sorted(self.last_ok.alerting) if self.last_ok else [],
             "reading_age_s": int((now - self.last_ok.fetched_at).total_seconds())

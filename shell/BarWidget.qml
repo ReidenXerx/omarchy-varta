@@ -22,7 +22,18 @@ BarWidget {
     const shell = root.bar ? root.bar.shell : null
     root.varta = shell && typeof shell.serviceFor === "function"
                  ? shell.serviceFor(root.pluginId) : null
+    root.share()
   }
+
+  // The widget is where per-widget settings from shell.json arrive; the
+  // service is what acts on them. Nothing carries them across on its own, so
+  // the widget hands them over — and again whenever they change, so editing
+  // the region takes effect without a restart.
+  function share() {
+    if (root.varta && "settings" in root.varta) root.varta.settings = root.settings
+  }
+
+  onSettingsChanged: root.share()
 
   Timer {
     interval: 1000
@@ -41,6 +52,8 @@ BarWidget {
   // Only struck through once the watch has something to be blind about.
   readonly property bool blind: root.varta ? root.varta.lost === true : false
   readonly property bool settling: root.ready && root.health !== "ok" && !root.blind
+  // Somewhere you keep an eye on, not somewhere you are.
+  readonly property int elsewhere: root.varta ? root.varta.alsoRaisedCount : 0
 
   readonly property color stateColor: {
     if (!root.ready) return Color.muted
@@ -61,8 +74,14 @@ BarWidget {
     }
     if (root.raised) return "Varta: ПОВІТРЯНА ТРИВОГА — " + root.varta.region
                             + " · unofficial, trust the siren and the official app"
-    if (root.health === "ok") return "Varta: clear in " + root.varta.region
-                                     + " · reading is " + root.varta.sourceAge + "s old"
+    if (root.health === "ok") {
+      let line = "Varta: clear in " + root.varta.region
+      const watched = root.varta.alsoState || []
+      for (const entry of watched) {
+        line += "\n" + (entry.alert === true ? "  ПОВІТРЯНА ТРИВОГА  " : "  clear  ") + entry.region
+      }
+      return line + "\nreading is " + root.varta.sourceAge + "s old"
+    }
     if (root.settling) return "Varta: starting up — waiting for the first reading"
     if (root.health === "stale") return "Varta: NOT WATCHING — the last reading is minutes old"
     return "Varta: NOT WATCHING — " + (root.varta.trouble || "cannot reach the feed")
@@ -92,10 +111,12 @@ BarWidget {
           readonly property color ink: root.stateColor
           readonly property bool filled: root.raised
           readonly property bool struck: root.blind
+          readonly property bool watching: root.elsewhere > 0 && !root.raised
 
           onInkChanged: requestPaint()
           onFilledChanged: requestPaint()
           onStruckChanged: requestPaint()
+          onWatchingChanged: requestPaint()
 
           onPaint: {
             const c = getContext("2d")
@@ -116,6 +137,16 @@ BarWidget {
             c.closePath()
             // Filled means an alert: the loudest thing this shape can do.
             if (shield.filled) c.fill(); else c.stroke()
+
+            // A dot means somewhere you are keeping an eye on is under alert.
+            // Deliberately small and deliberately not the alarm colour: it is
+            // news, not something for you to act on.
+            if (shield.watching) {
+              c.beginPath()
+              c.arc(s * 0.80, s * 0.20, s * 0.17, 0, Math.PI * 2)
+              c.fillStyle = "#F2B441"
+              c.fill()
+            }
 
             // Struck through means the watch cannot see. Not a shape anyone
             // reads as "fine".

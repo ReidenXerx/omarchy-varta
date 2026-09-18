@@ -32,6 +32,12 @@ Scope {
   // the part that actually matters.
   readonly property bool catching: banner.seconds < 60
 
+  // After a few minutes the band stops taking a tenth of the screen and becomes
+  // a strip. It stays for the whole alert — it just stops being furniture you
+  // have to work around while it does.
+  readonly property int fullFor: banner.service ? banner.service.fullFor : 180
+  readonly property bool compact: banner.raised && banner.seconds > banner.fullFor
+
   Timer {
     interval: 1000
     repeat: true
@@ -72,7 +78,11 @@ Scope {
       exclusionMode: ExclusionMode.Ignore
       mask: Region {}
       anchors { top: true; left: true; right: true }
-      implicitHeight: 96
+      implicitHeight: banner.compact ? 30 : 96
+
+      Behavior on implicitHeight {
+        NumberAnimation { duration: 420; easing.type: Easing.InOutCubic }
+      }
 
       Rectangle {
         anchors.fill: parent
@@ -95,7 +105,11 @@ Scope {
           }
         }
 
+        // The whole thing, for the first few minutes.
         Row {
+          visible: !banner.compact
+          opacity: banner.compact ? 0 : 1
+          Behavior on opacity { NumberAnimation { duration: 260 } }
           anchors.verticalCenter: parent.verticalCenter
           anchors.left: parent.left
           anchors.right: parent.right
@@ -164,8 +178,22 @@ Scope {
           Item { width: 1; height: 1 }
         }
 
+        // And a strip afterwards, saying the same thing in one line.
+        Text {
+          visible: banner.compact
+          anchors.centerIn: parent
+          text: "ПОВІТРЯНА ТРИВОГА · " + banner.region
+                + " · seen for " + banner.spoken(banner.seconds)
+          color: "#FFF7ED"
+          font.family: Style.font.family
+          font.pixelSize: 14
+          font.weight: Font.DemiBold
+          font.letterSpacing: 0.6
+        }
+
         // The thing it is easiest to forget at three in the morning.
         Text {
+          visible: !banner.compact
           anchors.right: parent.right
           anchors.rightMargin: 28
           anchors.verticalCenter: parent.verticalCenter

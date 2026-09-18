@@ -26,6 +26,9 @@ Item {
   readonly property string chosen: String(service.setting("region", "Detect automatically"))
   readonly property bool soundOn: service.setting("sound", true) !== false
   readonly property int repeatEvery: Number(service.setting("repeatEvery", 45))
+  readonly property int sayTimes: Number(service.setting("sayTimes", 3))
+  readonly property int fullFor: Number(service.setting("fullFor", 180))
+  readonly property string alsoRaw: String(service.setting("also", ""))
   readonly property string voice: String(service.setting("voice", "Glass")).toLowerCase()
 
   // Left on detect, the region comes from one lookup; choose one from the list
@@ -36,6 +39,23 @@ Item {
   property string detectionWhy: ""
 
   readonly property string region: service.detecting ? service.detected : service.chosen
+
+  // Places kept an eye on. Never enough to put a band on the screen: that is
+  // reserved for where you actually are.
+  readonly property var also: {
+    const out = []
+    for (const name of service.alsoRaw.split(",")) {
+      const trimmed = name.trim()
+      if (trimmed !== "" && trimmed !== service.region) out.push(trimmed)
+    }
+    return out
+  }
+  readonly property var alsoState: service.reading.also || []
+  readonly property int alsoRaisedCount: {
+    let n = 0
+    for (const entry of service.alsoState) if (entry.alert === true) n++
+    return n
+  }
 
   readonly property string pluginDir:
     String(Qt.resolvedUrl("..")).replace("file://", "")
@@ -56,7 +76,12 @@ Item {
 
   onRaisedChanged: {
     service.freshlyRaised = service.raised
-    if (service.raised) newsworthy.restart(); else newsworthy.stop()
+    if (service.raised) {
+      newsworthy.restart()
+    } else {
+      newsworthy.stop()
+      service.said = 0
+    }
   }
 
   Timer {
@@ -120,16 +145,26 @@ Item {
       grace.restart()
     }
     const wasRaised = service.raised
+    const wasElsewhere = service.alsoRaisedCount
     service.reading = next
-    if (service.raised && !wasRaised) service.say("alert")
-    else if (wasRaised && service.calm) service.say("clear")
+
+    if (service.raised && !wasRaised) {
+      service.said = 1
+      service.say("alert", false)
+    } else if (wasRaised && service.calm) {
+      service.say("clear", false)
+    } else if (service.alsoRaisedCount > wasElsewhere) {
+      // Somewhere you are keeping an eye on. Said once, quietly, and never
+      // with a band across the screen.
+      service.say("alert", true)
+    }
   }
 
   Process {
     id: watcher
     running: service.region !== ""
     command: ["/usr/bin/python3", service.pluginDir + "bin/varta-watch",
-              "--region", service.region]
+              "--region", service.region, "--also", service.also.join(",")]
     stdout: SplitParser {
       onRead: function (line) { service.absorb(line) }
     }
@@ -186,21 +221,32 @@ Item {
 
   Process { id: player }
 
-  function say(kind) {
+  function say(kind, soft) {
     if (!service.soundOn) return
-    player.command = ["/usr/bin/paplay",
-                      service.pluginDir + "assets/" + kind + "-" + service.voice + ".wav"]
+    const file = service.pluginDir + "assets/" + kind + "-" + service.voice + ".wav"
+    // Somewhere else is worth hearing about, quietly. Paplay's scale is out of
+    // 65536, so this is a little under half.
+    player.command = soft ? ["/usr/bin/paplay", "--volume=27000", file]
+                          : ["/usr/bin/paplay", file]
     player.running = true
   }
 
-  // While an alert stands, say so again now and then: the first one can be
-  // missed, and the second should not have to wait for the all-clear.
+  property int said: 0
+
+  // The first sounding can be missed, so it says so again — a few times, and
+  // then it stops. An alert can stand for hours, and something that has been
+  // chiming since midnight is something you will turn off, which leaves you
+  // with nothing at all.
   Timer {
     interval: Math.max(15, service.repeatEvery) * 1000
     repeat: true
-    running: service.raised && service.soundOn
-    onTriggered: service.say("alert")
+    running: service.raised && service.soundOn && service.said < service.sayTimes
+    onTriggered: {
+      service.said++
+      service.say("alert", false)
+    }
   }
+
 
   // ---------------------------------------------------------------- the banner
 
@@ -234,6 +280,8 @@ Item {
         detection: service.detectionState,
         health: service.health,
         alert: service.reading.alert === undefined ? null : service.reading.alert,
+        also: service.alsoState,
+        alsoRaised: service.alsoRaisedCount,
         alertingCount: service.alertingCount,
         sourceAgeSeconds: service.sourceAge,
         rehearsing: service.rehearsing,
