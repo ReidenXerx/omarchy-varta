@@ -76,7 +76,10 @@ Scope {
       // not be something you have to get out of the way of.
       WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
       exclusionMode: ExclusionMode.Ignore
-      mask: Region {}
+      // Click-through everywhere except the one control that puts it away.
+      // Everything else you click goes to whatever is underneath, which is the
+      // whole point of a band you are not meant to have to fight.
+      mask: Region { item: putAway }
       anchors { top: true; left: true; right: true }
       implicitHeight: banner.compact ? 30 : 96
 
@@ -191,11 +194,42 @@ Scope {
           font.letterSpacing: 0.6
         }
 
+        // The only thing on here you can actually click.
+        Rectangle {
+          id: putAway
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          anchors.rightMargin: banner.compact ? 8 : 14
+          width: banner.compact ? 24 : 30
+          height: width
+          radius: width / 2
+          color: away.hovered ? Qt.rgba(1, 1, 1, 0.22) : Qt.rgba(1, 1, 1, 0.10)
+          border.width: 1
+          border.color: Qt.rgba(1, 1, 1, 0.28)
+
+          Text {
+            anchors.centerIn: parent
+            text: "\u00d7"
+            color: "#FFF7ED"
+            font.family: Style.font.family
+            font.pixelSize: banner.compact ? 13 : 16
+          }
+
+          HoverHandler {
+            id: away
+            cursorShape: Qt.PointingHandCursor
+          }
+
+          TapHandler {
+            onTapped: if (banner.service) banner.service.dismiss()
+          }
+        }
+
         // The thing it is easiest to forget at three in the morning.
         Text {
           visible: !banner.compact
-          anchors.right: parent.right
-          anchors.rightMargin: 28
+          anchors.right: putAway.left
+          anchors.rightMargin: 16
           anchors.verticalCenter: parent.verticalCenter
           horizontalAlignment: Text.AlignRight
           text: banner.raised

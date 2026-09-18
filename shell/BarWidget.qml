@@ -287,10 +287,16 @@ BarWidget {
       }
 
       Repeater {
-        model: [
-          { label: "Test the alert", action: "test" },
-          { label: "Find my region again", action: "detect" },
-        ]
+        model: {
+          const rows = []
+          if (root.varta && root.varta.banded)
+            rows.push({ label: "Put the band away", action: "dismiss" })
+          if (root.varta && root.varta.raised && !(root.varta.banded))
+            rows.push({ label: "Show the band again", action: "unhide" })
+          rows.push({ label: "Test the alert", action: "test" })
+          rows.push({ label: "Find my region again", action: "detect" })
+          return rows
+        }
 
         delegate: Rectangle {
           id: entry
@@ -320,7 +326,10 @@ BarWidget {
             cursorShape: Qt.PointingHandCursor
             onClicked: {
               if (!root.varta) return
-              if (entry.modelData.action === "test") root.varta.rehearse()
+              const what = entry.modelData.action
+              if (what === "test") root.varta.rehearse()
+              else if (what === "dismiss") root.varta.dismiss()
+              else if (what === "unhide") root.varta.unhide()
               else root.varta.findMyRegion()
               root.cardOpen = false
             }

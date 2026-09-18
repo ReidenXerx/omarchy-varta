@@ -56,6 +56,19 @@ Put the widget on your bar. It finds your oblast on its own; if you would rather
 it never made that request, choose your region from the widget's settings and
 the lookup never runs.
 
+**Putting the band away.** Click the **×** at its right-hand end — the only
+thing on the band that takes a click; everything else passes through to whatever
+is underneath. It hides the band *for that alert only*: the shield in the bar
+stays red for as long as the alert stands, and a new alert brings the band back.
+"Dismissed" never quietly becomes "and never tell me again".
+
+The same is in the widget's card, and from a key binding or a script:
+
+```bash
+qs -p /usr/share/omarchy/shell ipc call varta dismiss
+qs -p /usr/share/omarchy/shell ipc call varta show      # bring it back
+```
+
 | The shield | Means |
 |---|---|
 | hollow | a fresh reading, and your oblast is clear |

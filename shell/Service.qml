@@ -108,6 +108,36 @@ Item {
   // this plugin exists.
   property bool rehearsing: false
 
+  // Putting the band away, for this alert only.
+  //
+  // It hides the band and nothing else: the shield in the bar stays red for as
+  // long as the alert stands, so the fact is never actually gone — only the
+  // thing taking up your screen. A new alert brings the band back, because
+  // "dismissed" should never quietly mean "and never tell me again".
+  property string dismissed: ""
+
+  readonly property string alertKey: service.rehearsing
+    ? "rehearsal" : service.region + "|" + service.since
+
+  readonly property bool banded: service.raised && service.dismissed !== service.alertKey
+
+  // And a way back, for a band put away by mistake.
+  function unhide() {
+    service.dismissed = ""
+    return "band shown again"
+  }
+
+  function dismiss() {
+    if (service.rehearsing) {
+      service.rehearsing = false
+      rehearsal.stop()
+      return "rehearsal ended"
+    }
+    if (!service.raised) return "nothing to dismiss"
+    service.dismissed = service.alertKey
+    return "band hidden until this alert ends"
+  }
+
   // True for the first minute of an alert, which is how long movement is worth
   // its cost on a battery.
   property bool freshlyRaised: false
@@ -327,6 +357,10 @@ Item {
       return "stopped"
     }
 
+    function dismiss(): string { return service.dismiss() }
+
+    function show(): string { return service.unhide() }
+
     function status(): string {
       return JSON.stringify({
         region: service.region,
@@ -339,6 +373,7 @@ Item {
         alertingCount: service.alertingCount,
         sourceAgeSeconds: service.sourceAge,
         rehearsing: service.rehearsing,
+        bandDismissed: service.raised && service.dismissed === service.alertKey,
       })
     }
   }
@@ -357,7 +392,7 @@ Item {
   }
 
   Loader {
-    active: service.raised || service.lost
+    active: service.banded || service.lost
     source: Qt.resolvedUrl("Banner.qml")
     onLoaded: if (item) item.service = service
   }
