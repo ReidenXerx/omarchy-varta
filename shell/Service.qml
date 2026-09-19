@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 
 // What is known about the air raid feed, and what the desktop does about it.
 //
@@ -341,7 +342,23 @@ Item {
   // the act of saving cannot be used to choose more than one thing.
   property bool pickerOpen: false
 
-  function openPicker() { service.pickerOpen = true }
+  function openPicker() {
+    service.pickerOpen = true
+    floatIt.restart()
+  }
+
+  // Quickshell's FloatingWindow is not floating to Hyprland — without this it
+  // is tiled like any other window, and opening a chooser rearranges whatever
+  // you were working on.
+  Timer {
+    id: floatIt
+    interval: 350
+    onTriggered: {
+      const selector = 'title:Varta — regions to watch'
+      Hyprland.dispatch('hl.dsp.window.float({ window = "' + selector + '", action = "enable" })')
+      Hyprland.dispatch('hl.dsp.window.center({ window = "' + selector + '" })')
+    }
+  }
 
   Loader {
     active: service.pickerOpen
@@ -402,6 +419,11 @@ Item {
     }
 
     function dismiss(): string { return service.dismiss() }
+
+    function regions(): string {
+      service.openPicker()
+      return "picker opened"
+    }
 
     function show(): string { return service.unhide() }
 

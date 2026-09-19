@@ -13,24 +13,40 @@ FloatingWindow {
 
   property var service: null
 
-  // Chosen here, written once. The list starts from what is being watched now.
+  // What is ticked. Until you touch something this follows the service, because
+  // a window opened before the settings arrive would otherwise start empty —
+  // and saving that would quietly wipe the places you had chosen.
+  property bool touched: false
   property var pending: []
 
+  readonly property var chosen: picker.touched
+    ? picker.pending
+    : (picker.service ? picker.service.also : [])
+
+  visible: true
   implicitWidth: 460
-  implicitHeight: 560
+  implicitHeight: 600
+  // Size hints, not wishes: a floating window with none gets whatever the
+  // compositor feels like, which here was very nearly the whole screen.
+  minimumSize: Qt.size(380, 420)
+  maximumSize: Qt.size(560, 760)
   title: "Varta — regions to watch"
-  color: Color.background
+  // Opaque on purpose: themes give these colours an alpha, and a chooser you
+  // can read the desktop through is a chooser you misread.
+  color: Qt.rgba(Color.background.r, Color.background.g, Color.background.b, 1)
 
   function has(name) {
-    for (const current of picker.pending) if (current === name) return true
+    for (const current of picker.chosen) if (current === name) return true
     return false
   }
 
   function toggle(name) {
     if (!picker.service || name === picker.service.region) return
+    const from = picker.chosen
+    picker.touched = true
     const next = []
     let had = false
-    for (const current of picker.pending) {
+    for (const current of from) {
       if (current === name) had = true
       else next.push(current)
     }
@@ -39,7 +55,7 @@ FloatingWindow {
   }
 
   function save() {
-    if (picker.service) picker.service.saveAlso(picker.pending)
+    if (picker.service) picker.service.saveAlso(picker.chosen)
     picker.close()
   }
 
@@ -47,9 +63,7 @@ FloatingWindow {
     if (picker.service) picker.service.pickerOpen = false
   }
 
-  Component.onCompleted: {
-    picker.pending = picker.service ? picker.service.also.slice() : []
-  }
+
 
   ColumnLayout {
     anchors.fill: parent
@@ -135,10 +149,10 @@ FloatingWindow {
 
       Text {
         Layout.fillWidth: true
-        text: picker.pending.length === 0
+        text: picker.chosen.length === 0
               ? "Watching only where you are"
-              : "Watching " + picker.pending.length
-                + (picker.pending.length === 1 ? " other place" : " other places")
+              : "Watching " + picker.chosen.length
+                + (picker.chosen.length === 1 ? " other place" : " other places")
         color: Color.muted
         font.family: Style.font.family
         font.pixelSize: Style.font.caption

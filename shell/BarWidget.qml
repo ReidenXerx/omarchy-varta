@@ -216,7 +216,7 @@ BarWidget {
     padding: Style.space(8)
     contentWidth: card.fittedContentWidth(Style.space(300))
     contentHeight: card.fittedContentHeight(cardColumn.implicitHeight)
-    onVisibleChanged: if (!visible) root.cardOpen = false
+    onVisibleChanged: if (!card.visible) root.cardOpen = false
 
     Column {
       id: cardColumn
