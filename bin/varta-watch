@@ -90,6 +90,7 @@ def clocks() -> tuple[float, float]:
 def run(region: str, others: tuple[str, ...], every: int, once: bool,
         feed: str = FEED) -> int:
     watch = Watch(region=region, others=others)
+    known: list[str] = []
     awake, booted = clocks()
     while True:
         now_awake, now_booted = clocks()
@@ -100,14 +101,18 @@ def run(region: str, others: tuple[str, ...], every: int, once: bool,
         awake, booted = now_awake, now_booted
         now = dt.datetime.now(dt.timezone.utc)
         try:
-            alerting, source_time, _ = fetch(feed)
+            alerting, source_time, names = fetch(feed)
             watch.observe(Reading(fetched_at=now, source_time=source_time, alerting=alerting))
+            known = names
             error = None
         except Exception as problem:            # any failure is the same to a reader
             watch.failed(now)
             error = f"{type(problem).__name__}: {problem}"[:200]
 
         line = watch.snapshot(dt.datetime.now(dt.timezone.utc))
+        # The regions the feed actually has, so nothing downstream has to keep
+        # its own copy of the list and drift from it.
+        line["known"] = known
         if slept > 30:
             line["resumed"] = True
             line["slept_s"] = int(slept)

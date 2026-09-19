@@ -89,6 +89,8 @@ Item {
     return out
   }
   readonly property var alsoState: service.reading.also || []
+  // Straight from the feed, so the list in the picker is the list that exists.
+  readonly property var knownRegions: service.reading.known || []
   readonly property int alsoRaisedCount: {
     let n = 0
     for (const entry of service.alsoState) if (entry.alert === true) n++
@@ -309,6 +311,35 @@ Item {
   // ---------------------------------------------------------------- the sound
 
   Process { id: player }
+
+  // Settings are written with Omarchy's own tool rather than by editing
+  // shell.json here: one writer, and the file keeps whatever shape the platform
+  // expects. The change comes back through the FileView a moment later, which
+  // is what makes the picker feel immediate.
+  Process { id: writer }
+
+  function saveAlso(regions) {
+    writer.command = ["/usr/share/omarchy/bin/omarchy-bar", "set",
+                      "reidenxerx.varta", "also", regions.join(", ")]
+    writer.running = true
+  }
+
+  function toggleAlso(name) {
+    if (!name || name === service.region) return
+    const next = []
+    let had = false
+    for (const current of service.also) {
+      if (current === name) had = true
+      else next.push(current)
+    }
+    if (!had) next.push(name)
+    service.saveAlso(next)
+  }
+
+  function isWatched(name) {
+    for (const current of service.also) if (current === name) return true
+    return false
+  }
 
   function say(kind, soft) {
     if (!service.soundOn) return

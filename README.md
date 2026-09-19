@@ -80,10 +80,14 @@ qs -p /usr/share/omarchy/shell ipc call varta show      # bring it back
 is watching and the state of each, and two things worth doing — *Test the alert*
 and *Find my region again*.
 
-**Changing which regions it watches** is done where every Omarchy widget keeps
-its options, not in a second place that can disagree with the first: the
-widget's settings. Either edit the bar with
-[Barber](https://github.com/ReidenXerx/omarchy-barber), or from a terminal:
+**Adding places to watch** is in the card: *Regions to watch…* lists every
+region the feed has, with yours marked ★ and each watched one ticked. Tap the
+ones you want and tap **Done** — saved in one go, because saving makes the shell
+rebuild its bar widgets and that closes the card. It applies within a second or
+two; nothing needs restarting.
+
+The same options are in the widget's settings, if you prefer to edit the bar
+with [Barber](https://github.com/ReidenXerx/omarchy-barber), or a terminal:
 
 ```bash
 omarchy bar set reidenxerx.varta region "Львівська область"
