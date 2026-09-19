@@ -16,6 +16,7 @@ import argparse
 import json
 import os
 import pathlib
+import stat
 import sys
 import tempfile
 
@@ -28,8 +29,21 @@ def config_path() -> pathlib.Path:
 
 
 def load(path: pathlib.Path) -> dict:
-    with open(path, "rb", buffering=0) as handle:
-        raw = handle.read(4 * 1024 * 1024)      # a bar layout is never this big
+    # O_NOFOLLOW: this runs as you, over a file in your config directory, so a
+    # symlink dropped in its place would be read — and later written — on your
+    # behalf. Refuse to follow one rather than find out where it pointed.
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode):
+            raise RuntimeError(f"{path} is not a regular file")
+        if info.st_uid != os.getuid():
+            raise RuntimeError(f"{path} is not yours")
+        with os.fdopen(descriptor, "rb", buffering=0) as handle:
+            raw = handle.read(4 * 1024 * 1024)  # a bar layout is never this big
+    except BaseException:
+        os.close(descriptor)
+        raise
     return json.loads(raw.decode("utf-8"))
 
 
@@ -37,6 +51,11 @@ def save(path: pathlib.Path, data: dict) -> None:
     """Written beside the original and moved over it, so a crash mid-write
     cannot leave somebody with half a shell config."""
     directory = path.parent
+    # The directory we are about to create a file in, and move one over, has to
+    # be ours too — an attacker-owned parent makes every check below moot.
+    parent = os.stat(directory)
+    if parent.st_uid != os.getuid():
+        raise RuntimeError(f"{directory} is not yours")
     handle, temporary = tempfile.mkstemp(dir=directory, prefix=".varta-", suffix=".json")
     try:
         with os.fdopen(handle, "w", encoding="utf-8") as out:

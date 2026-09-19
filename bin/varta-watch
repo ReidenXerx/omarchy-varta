@@ -17,6 +17,7 @@ import argparse
 import datetime as dt
 import json
 import pathlib
+import signal
 import sys
 import time
 import urllib.error
@@ -24,6 +25,22 @@ import urllib.request
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "app"))
 from watchcore import Reading, Watch, backoff, plainly  # noqa: E402
+
+def die_with_parent() -> None:
+    """Ask the kernel to kill this process when whoever started it goes away.
+
+    The shell spawns this and streams its output; if the shell is killed
+    outright, a poller left behind would go on asking somebody else's server
+    for alerts forever, with nothing reading the answers.
+    """
+    try:
+        import ctypes
+        PR_SET_PDEATHSIG = 1
+        ctypes.CDLL("libc.so.6", use_errno=True).prctl(
+            PR_SET_PDEATHSIG, signal.SIGTERM, 0, 0, 0)
+    except Exception:
+        pass  # a leash we could not fasten is not a reason to refuse to watch
+
 
 FEED = "https://ubilling.net.ua/aerialalerts/"
 AGENT = "omarchy-varta/1.0 (+https://github.com/ReidenXerx/omarchy-varta)"
@@ -140,6 +157,8 @@ def main() -> int:
     parser.add_argument("--feed", default=FEED,
                         help="where to read from; for proving what happens when it cannot be read")
     args = parser.parse_args()
+
+    die_with_parent()
 
     if args.list:
         try:

@@ -36,7 +36,12 @@ SOURCES = (
 def ask(url: str) -> dict:
     request = urllib.request.Request(url, headers={"User-Agent": AGENT})
     with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
-        return json.loads(response.read(CEILING).decode("utf-8"))
+        # One byte past the ceiling, so an oversized body is recognised as one
+        # rather than silently cut to length and parsed as if it were whole.
+        raw = response.read(CEILING + 1)
+    if len(raw) > CEILING:
+        raise RuntimeError("response too large to be a location")
+    return json.loads(raw.decode("utf-8"))
 
 
 def read(payload: dict) -> tuple[str | None, bool]:
