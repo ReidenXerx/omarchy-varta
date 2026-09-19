@@ -337,32 +337,57 @@ Item {
     service.saveAlso(next)
   }
 
-  // The picker is a window of its own, held here rather than in the bar widget:
-  // saving a setting rebuilds bar widgets, and a chooser that is destroyed by
-  // the act of saving cannot be used to choose more than one thing.
-  property bool pickerOpen: false
+  // The panel is a window of its own, held here rather than in the bar widget:
+  // saving a setting rebuilds bar widgets, and anything living inside one is
+  // destroyed mid-click.
+  //
+  // Nothing here remembers whether the panel is open. It asks the window. A
+  // remembered "it is open" is exactly what broke this before: close the
+  // window any other way — its titlebar, a keybind, a crash — and the flag
+  // stays true, so the next click toggles it back to false and the shield
+  // looks dead. Asking cannot drift, and a stale window heals on the next
+  // click instead of needing a restart.
+  readonly property bool panelShowing: panelLoader.active
+                                       && panelLoader.item
+                                       && panelLoader.item.visible
 
-  function openPicker() {
-    service.pickerOpen = true
-    floatIt.restart()
+  function showPanel() {
+    if (service.panelShowing) return
+    // Off and on again, imperatively: a window that went away without telling
+    // us leaves the Loader loaded, and only a fresh one comes back.
+    panelLoader.active = false
+    panelLoader.active = true
   }
 
-  // Quickshell's FloatingWindow is not floating to Hyprland — without this it
-  // is tiled like any other window, and opening a chooser rearranges whatever
-  // you were working on.
-  Timer {
-    id: floatIt
-    interval: 350
-    onTriggered: {
-      const selector = 'title:Varta — regions to watch'
-      Hyprland.dispatch('hl.dsp.window.float({ window = "' + selector + '", action = "enable" })')
-      Hyprland.dispatch('hl.dsp.window.center({ window = "' + selector + '" })')
-    }
+  function hidePanel() { panelLoader.active = false }
+
+  function togglePanel() {
+    if (service.panelShowing) service.hidePanel(); else service.showPanel()
+  }
+
+  // Kept for the IPC verb, which reads better as a verb.
+  function openPicker() { service.showPanel() }
+
+  // Omarchy tags every window "+default-opacity" and then applies 0.985/0.96
+  // to anything still carrying the tag. On a dark panel that is enough to read
+  // the window behind it straight through the text, so the tag comes off.
+  //
+  // A rule, not a property set after the fact: rules are applied when a window
+  // opens, and setting alpha on an already-open window does nothing here. It
+  // is registered once, at startup, so it is in place before the panel exists.
+  Process {
+    id: dressWindow
+    running: true
+    command: ["/usr/bin/hyprctl", "eval",
+      'hl.window_rule({ match = { class = "^org.quickshell$", title = "^Varta$" }, '
+      + 'tag = "-default-opacity", opacity = "1 1", float = true, center = true }) '
+      + 'return 1']
   }
 
   Loader {
-    active: service.pickerOpen
-    source: Qt.resolvedUrl("Picker.qml")
+    id: panelLoader
+    active: false
+    source: Qt.resolvedUrl("Panel.qml")
     onLoaded: if (item) item.service = service
   }
 
@@ -421,8 +446,8 @@ Item {
     function dismiss(): string { return service.dismiss() }
 
     function regions(): string {
-      service.openPicker()
-      return "picker opened"
+      service.showPanel()
+      return "panel opened"
     }
 
     function show(): string { return service.unhide() }
