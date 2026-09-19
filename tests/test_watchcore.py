@@ -9,7 +9,7 @@ import pathlib
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "app"))
-from watchcore import BLIND, OK, STALE, Reading, Watch, backoff, plainly  # noqa: E402
+from watchcore import plain, BLIND, OK, STALE, Reading, Watch, backoff, plainly  # noqa: E402
 
 T0 = dt.datetime(2026, 9, 17, 18, 0, 0, tzinfo=dt.timezone.utc)
 HERE = "Харківська область"
@@ -135,6 +135,17 @@ def test_retries_slow_down_but_keep_trying():
     assert backoff(2) == 120
     assert backoff(3) == 240
     assert backoff(9) == 300, "capped, so it never stops checking"
+
+
+def test_names_from_the_feed_are_flattened_before_anyone_draws_them():
+    # They are shown in the bar, in its tooltip and on a band across the
+    # screen, and not every one of those sinks belongs to this plugin.
+    assert plain("Київська область") == "Київська область", "a real name survives intact"
+    assert "<" not in plain("<b>Київська</b>") and ">" not in plain("<b>Київська</b>")
+    assert plain("two\nlines") == "two lines", "nothing can rearrange a line"
+    assert plain("  padded  ") == "padded"
+    assert len(plain("x" * 500)) == 120, "a region name is never this long"
+    assert plain(None) == "" and plain("") == ""
 
 
 if __name__ == "__main__":

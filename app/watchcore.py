@@ -125,6 +125,26 @@ class Watch:
         }
 
 
+# A region name is at most a couple of words; anything longer is not one.
+NAME_CEILING = 120
+
+
+def plain(text: str) -> str:
+    """A string from the feed, fit to hand to anything that draws text.
+
+    Region names are shown in the bar, in its tooltip and on a band across the
+    screen, and not every one of those sinks belongs to this plugin. So markup
+    characters, anything unprintable and anything that could rearrange a line
+    are removed here, at the boundary, rather than trusted to each sink.
+    """
+    flattened = "".join(
+        " " if character in "\r\n\t" else character
+        for character in (text or "")
+        if character.isprintable() or character in "\r\n\t"
+    )
+    return flattened.replace("<", "").replace(">", "").strip()[:NAME_CEILING]
+
+
 def plainly(error: str) -> str:
     """What to tell a person about a failure.
 

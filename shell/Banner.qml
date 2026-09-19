@@ -125,6 +125,10 @@ Scope {
             spacing: 2
 
             Text {
+              // Everything shown here is ultimately somebody else's string:
+              // region names and error text arrive from the feed. Rendered
+              // literally, never interpreted as markup.
+              textFormat: Text.PlainText
               text: banner.rehearsing ? "ТЕСТ · ПОВІТРЯНА ТРИВОГА"
                   : banner.raised ? "ПОВІТРЯНА ТРИВОГА" : "ТРИВОГИ НЕ ВИДНО"
               color: "#FFF7ED"
@@ -135,6 +139,10 @@ Scope {
             }
 
             Text {
+              // Everything shown here is ultimately somebody else's string:
+              // region names and error text arrive from the feed. Rendered
+              // literally, never interpreted as markup.
+              textFormat: Text.PlainText
               text: banner.rehearsing ? "This is a test of the alert — no alert is in progress"
                   : banner.raised ? "Air raid alert · take shelter"
                                   : "Not watching · this app cannot see the feed"
@@ -156,6 +164,10 @@ Scope {
             spacing: 2
 
             Text {
+              // Everything shown here is ultimately somebody else's string:
+              // region names and error text arrive from the feed. Rendered
+              // literally, never interpreted as markup.
+              textFormat: Text.PlainText
               text: banner.region
               color: "#FFF7ED"
               font.family: Style.font.family
@@ -164,6 +176,10 @@ Scope {
             }
 
             Text {
+              // Everything shown here is ultimately somebody else's string:
+              // region names and error text arrive from the feed. Rendered
+              // literally, never interpreted as markup.
+              textFormat: Text.PlainText
               // Only ever about this oblast. What the rest of the country is
               // doing is not something to put in front of someone who is
               // deciding whether to move.
@@ -183,6 +199,10 @@ Scope {
 
         // And a strip afterwards, saying the same thing in one line.
         Text {
+          // Everything shown here is ultimately somebody else's string:
+          // region names and error text arrive from the feed. Rendered
+          // literally, never interpreted as markup.
+          textFormat: Text.PlainText
           visible: banner.compact
           anchors.centerIn: parent
           text: "ПОВІТРЯНА ТРИВОГА · " + banner.region
@@ -208,6 +228,10 @@ Scope {
           border.color: Qt.rgba(1, 1, 1, 0.28)
 
           Text {
+            // Everything shown here is ultimately somebody else's string:
+            // region names and error text arrive from the feed. Rendered
+            // literally, never interpreted as markup.
+            textFormat: Text.PlainText
             anchors.centerIn: parent
             text: "\u00d7"
             color: "#FFF7ED"
@@ -227,6 +251,10 @@ Scope {
 
         // The thing it is easiest to forget at three in the morning.
         Text {
+          // Everything shown here is ultimately somebody else's string:
+          // region names and error text arrive from the feed. Rendered
+          // literally, never interpreted as markup.
+          textFormat: Text.PlainText
           visible: !banner.compact
           anchors.right: putAway.left
           anchors.rightMargin: 16

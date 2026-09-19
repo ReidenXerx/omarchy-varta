@@ -24,7 +24,7 @@ import urllib.error
 import urllib.request
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "app"))
-from watchcore import Reading, Watch, backoff, plainly  # noqa: E402
+from watchcore import Reading, Watch, backoff, plain, plainly  # noqa: E402
 
 def die_with_parent() -> None:
     """Ask the kernel to kill this process when whoever started it goes away.
@@ -75,6 +75,13 @@ def fetch(url: str) -> tuple[frozenset[str], dt.datetime | None, list[str]]:
     states = payload.get("states")
     if not isinstance(states, dict) or not states:
         raise RuntimeError("feed carried no regions")
+
+    # Names are flattened once, here, so that everything downstream — the
+    # matching, the bar, the band — works on the same safe strings.
+    states = {plain(name): value for name, value in states.items()
+              if isinstance(name, str) and plain(name)}
+    if not states:
+        raise RuntimeError("feed carried no usable region names")
 
     alerting = frozenset(
         name for name, value in states.items()

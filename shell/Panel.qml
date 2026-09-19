@@ -111,6 +111,10 @@ FloatingWindow {
         spacing: 10
 
         Text {
+          // Everything shown here is ultimately somebody else's string:
+          // region names and error text arrive from the feed. Rendered
+          // literally, never interpreted as markup.
+          textFormat: Text.PlainText
           Layout.fillWidth: true
           text: panel.ready ? panel.service.region : "No region yet"
           elide: Text.ElideRight
@@ -121,6 +125,10 @@ FloatingWindow {
         }
 
         Text {
+          // Everything shown here is ultimately somebody else's string:
+          // region names and error text arrive from the feed. Rendered
+          // literally, never interpreted as markup.
+          textFormat: Text.PlainText
           visible: panel.ready
           text: panel.service ? panel.wordFor(panel.service.reading.alert) : ""
           color: panel.service ? panel.colourFor(panel.service.reading.alert) : Color.muted
@@ -131,6 +139,10 @@ FloatingWindow {
       }
 
       Text {
+        // Everything shown here is ultimately somebody else's string:
+        // region names and error text arrive from the feed. Rendered
+        // literally, never interpreted as markup.
+        textFormat: Text.PlainText
         Layout.fillWidth: true
         wrapMode: Text.WordWrap
         text: !panel.service ? "Starting"
@@ -163,6 +175,10 @@ FloatingWindow {
           spacing: 10
 
           Text {
+            // Everything shown here is ultimately somebody else's string:
+            // region names and error text arrive from the feed. Rendered
+            // literally, never interpreted as markup.
+            textFormat: Text.PlainText
             Layout.fillWidth: true
             text: "· " + modelData.region
             elide: Text.ElideRight
@@ -172,6 +188,10 @@ FloatingWindow {
           }
 
           Text {
+            // Everything shown here is ultimately somebody else's string:
+            // region names and error text arrive from the feed. Rendered
+            // literally, never interpreted as markup.
+            textFormat: Text.PlainText
             text: panel.wordFor(modelData.alert)
             color: panel.colourFor(modelData.alert)
             font.family: Style.font.family
@@ -189,6 +209,10 @@ FloatingWindow {
     }
 
     Text {
+      // Everything shown here is ultimately somebody else's string:
+      // region names and error text arrive from the feed. Rendered
+      // literally, never interpreted as markup.
+      textFormat: Text.PlainText
       Layout.fillWidth: true
       wrapMode: Text.WordWrap
       text: "Where you are is marked ★. Anywhere else you tick is shown in the bar "
@@ -219,6 +243,10 @@ FloatingWindow {
         HoverHandler { id: hover; enabled: !row.mine }
 
         Text {
+          // Everything shown here is ultimately somebody else's string:
+          // region names and error text arrive from the feed. Rendered
+          // literally, never interpreted as markup.
+          textFormat: Text.PlainText
           anchors.left: parent.left
           anchors.leftMargin: 10
           anchors.verticalCenter: parent.verticalCenter
@@ -230,6 +258,10 @@ FloatingWindow {
         }
 
         Text {
+          // Everything shown here is ultimately somebody else's string:
+          // region names and error text arrive from the feed. Rendered
+          // literally, never interpreted as markup.
+          textFormat: Text.PlainText
           anchors.left: parent.left
           anchors.leftMargin: 34
           anchors.right: parent.right
@@ -281,6 +313,10 @@ FloatingWindow {
           HoverHandler { id: quietHover }
 
           Text {
+            // Everything shown here is ultimately somebody else's string:
+            // region names and error text arrive from the feed. Rendered
+            // literally, never interpreted as markup.
+            textFormat: Text.PlainText
             id: quietLabel
             anchors.centerIn: parent
             text: modelData.label
@@ -312,6 +348,10 @@ FloatingWindow {
       spacing: 10
 
       Text {
+        // Everything shown here is ultimately somebody else's string:
+        // region names and error text arrive from the feed. Rendered
+        // literally, never interpreted as markup.
+        textFormat: Text.PlainText
         Layout.fillWidth: true
         text: panel.chosen.length === 0
               ? "Watching only where you are"
@@ -339,6 +379,10 @@ FloatingWindow {
           HoverHandler { id: buttonHover }
 
           Text {
+            // Everything shown here is ultimately somebody else's string:
+            // region names and error text arrive from the feed. Rendered
+            // literally, never interpreted as markup.
+            textFormat: Text.PlainText
             id: label
             anchors.centerIn: parent
             text: modelData.label
@@ -357,6 +401,10 @@ FloatingWindow {
     }
 
     Text {
+      // Everything shown here is ultimately somebody else's string:
+      // region names and error text arrive from the feed. Rendered
+      // literally, never interpreted as markup.
+      textFormat: Text.PlainText
       Layout.fillWidth: true
       wrapMode: Text.WordWrap
       text: "Unofficial, and oblast-wide — trust the siren and the official app."
