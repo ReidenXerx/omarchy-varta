@@ -96,15 +96,22 @@ BarWidget {
 
 
 
+  // "Not watching" is a serious thing to say, so it is only said when it is
+  // true. A watcher coming back after a settings change is not the feed being
+  // lost, and must not be dressed up as it — that is how a real warning stops
+  // being believed.
   function wordFor(alert) {
-    if (!root.varta || root.varta.health !== "ok") return "not watching"
+    if (!root.varta) return "not watching"
+    if (root.varta.lost) return "not watching"
+    if (root.varta.health !== "ok") return "reconnecting"
     if (alert === true) return "ПОВІТРЯНА ТРИВОГА"
     if (alert === false) return "clear"
     return "unknown"
   }
 
   function colourFor(alert) {
-    if (!root.varta || root.varta.health !== "ok") return "#F2B441"
+    if (!root.varta || root.varta.lost) return "#F2B441"
+    if (root.varta.health !== "ok") return Color.muted
     return alert === true ? "#F87171" : Color.muted
   }
 
@@ -219,9 +226,10 @@ BarWidget {
 
       Text {
         width: parent.width
-        text: root.varta && root.varta.health === "ok"
-              ? "Reading is " + root.varta.sourceAge + "s old"
-              : "No current reading"
+        text: !root.varta ? "Starting"
+            : root.varta.health === "ok" ? "Reading is " + root.varta.sourceAge + "s old"
+            : root.varta.lost ? "No current reading"
+            : "Waiting for the first reading…"
         color: Color.muted
         font.family: Style.font.family
         font.pixelSize: Style.font.caption

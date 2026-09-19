@@ -312,15 +312,15 @@ Item {
 
   Process { id: player }
 
-  // Settings are written with Omarchy's own tool rather than by editing
-  // shell.json here: one writer, and the file keeps whatever shape the platform
-  // expects. The change comes back through the FileView a moment later, which
-  // is what makes the picker feel immediate.
+  // Written by a helper of our own rather than by `omarchy-bar set`, which
+  // tells the shell and makes it rebuild every bar widget — destroying the one
+  // you just clicked. The change still lands within a second, through the
+  // FileView, with nothing torn down.
   Process { id: writer }
 
   function saveAlso(regions) {
-    writer.command = ["/usr/share/omarchy/bin/omarchy-bar", "set",
-                      "reidenxerx.varta", "also", regions.join(", ")]
+    writer.command = ["/usr/bin/python3", service.pluginDir + "bin/varta-config",
+                      "also", regions.join(", ")]
     writer.running = true
   }
 

@@ -86,6 +86,12 @@ ones you want and tap **Done** — saved in one go, because saving makes the she
 rebuild its bar widgets and that closes the card. It applies within a second or
 two; nothing needs restarting.
 
+Varta writes that choice into its own entry in `shell.json` itself, rather than
+through `omarchy bar set`. That is not fussiness: the platform's own setter
+tells the shell, which rebuilds every bar widget — destroying the widget you
+just clicked and leaving the bar unresponsive. Writing the file directly lands
+the same change within a second with nothing torn down.
+
 The same options are in the widget's settings, if you prefer to edit the bar
 with [Barber](https://github.com/ReidenXerx/omarchy-barber), or a terminal:
 

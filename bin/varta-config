@@ -1,0 +1,90 @@
+#!/usr/bin/python3
+"""Change this plugin's own settings without making the bar rebuild itself.
+
+Omarchy's own `omarchy-bar set` writes the same file and then tells the shell,
+which rebuilds every bar widget — destroying the one you just clicked, along
+with whatever was open on top of it. For a chooser that is fatal: saving the
+choice takes the chooser with it.
+
+This writes only this plugin's entry, and says nothing to anybody. The service
+watches the file, so the change still lands within a second — without anything
+being torn down.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import pathlib
+import sys
+import tempfile
+
+PLUGIN = "reidenxerx.varta"
+
+
+def config_path() -> pathlib.Path:
+    base = os.environ.get("XDG_CONFIG_HOME") or str(pathlib.Path.home() / ".config")
+    return pathlib.Path(base) / "omarchy" / "shell.json"
+
+
+def load(path: pathlib.Path) -> dict:
+    with open(path, "rb", buffering=0) as handle:
+        raw = handle.read(4 * 1024 * 1024)      # a bar layout is never this big
+    return json.loads(raw.decode("utf-8"))
+
+
+def save(path: pathlib.Path, data: dict) -> None:
+    """Written beside the original and moved over it, so a crash mid-write
+    cannot leave somebody with half a shell config."""
+    directory = path.parent
+    handle, temporary = tempfile.mkstemp(dir=directory, prefix=".varta-", suffix=".json")
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as out:
+            json.dump(data, out, ensure_ascii=False, indent=2)
+            out.write("\n")
+            out.flush()
+            os.fsync(out.fileno())
+        os.replace(temporary, path)
+    except BaseException:
+        pathlib.Path(temporary).unlink(missing_ok=True)
+        raise
+
+
+def entry_of(data: dict) -> dict | None:
+    layout = (data.get("bar") or {}).get("layout") or {}
+    for section in layout.values():
+        for item in section or []:
+            if isinstance(item, dict) and item.get("id") == PLUGIN:
+                return item
+    return None
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("key", choices=["also", "region"])
+    parser.add_argument("value")
+    args = parser.parse_args()
+
+    path = config_path()
+    if not path.is_file() or path.is_symlink():
+        print(f"not a regular file: {path}", file=sys.stderr)
+        return 1
+
+    data = load(path)
+    entry = entry_of(data)
+    if entry is None:
+        print(f"{PLUGIN} is not on the bar; nothing to set", file=sys.stderr)
+        return 2
+
+    value = args.value.strip()
+    if value:
+        entry[args.key] = value
+    else:
+        entry.pop(args.key, None)
+    save(path, data)
+    print(f"{args.key} = {value or '(cleared)'}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
