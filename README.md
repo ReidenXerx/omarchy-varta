@@ -154,6 +154,16 @@ python3 tools/make_sounds.py       # regenerate the sounds from their descriptio
 network in it, which is how "a stale watch must not claim there is no alert"
 gets to be a test rather than a hope.
 
+## Install
+
+```bash
+omarchy plugin add https://github.com/ReidenXerx/omarchy-varta.git --enable
+```
+
+Then add the Varta widget to your bar. It will work out which oblast you are in
+by itself; if it cannot, or gets it wrong, click the shield and set it straight
+from the panel.
+
 ## Requirements
 
 Omarchy's Quickshell-based shell, and `paplay` for the sound. Nothing else.
