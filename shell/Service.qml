@@ -231,10 +231,45 @@ Item {
     }
   }
 
+  // A child process starts life with whatever the shell was started with, and
+  // the shell is long-lived. LD_PRELOAD, PYTHONPATH, PYTHONHOME and friends
+  // would all be inherited by an interpreter this plugin then trusts, so each
+  // helper is handed only what it actually needs to do its job. Python runs
+  // isolated on top of that (-I, which is -E and -s together), so even a
+  // variable that did survive would be ignored.
+  //
+  // PYTHONIOENCODING is not optional here: region names are Cyrillic, and an
+  // interpreter with no locale left would refuse to print them.
+  function envWith(extra) {
+    const base = {
+      "PATH": "/usr/bin:/bin",
+      "HOME": Quickshell.env("HOME") || "",
+      "LANG": "C.UTF-8",
+      "PYTHONIOENCODING": "utf-8",
+    }
+    for (const key in extra) if (extra[key]) base[key] = extra[key]
+    return base
+  }
+
+  readonly property var plainEnv: service.envWith({})
+  readonly property var configEnv: service.envWith({
+    "XDG_CONFIG_HOME": Quickshell.env("XDG_CONFIG_HOME"),
+  })
+  readonly property var soundEnv: service.envWith({
+    "XDG_RUNTIME_DIR": Quickshell.env("XDG_RUNTIME_DIR"),
+    "PULSE_SERVER": Quickshell.env("PULSE_SERVER"),
+  })
+  readonly property var hyprEnv: service.envWith({
+    "XDG_RUNTIME_DIR": Quickshell.env("XDG_RUNTIME_DIR"),
+    "HYPRLAND_INSTANCE_SIGNATURE": Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE"),
+  })
+
   Process {
     id: watcher
     running: service.region !== ""
-    command: ["/usr/bin/python3", service.pluginDir + "bin/varta-watch",
+    clearEnvironment: true
+    environment: service.plainEnv
+    command: ["/usr/bin/python3", "-I", service.pluginDir + "bin/varta-watch",
               "--region", service.region, "--also", service.also.join(",")]
     stdout: SplitParser {
       onRead: function (line) { service.absorb(line) }
@@ -278,7 +313,9 @@ Item {
 
   Process {
     id: locator
-    command: ["/usr/bin/python3", service.pluginDir + "bin/varta-locate", "--json"]
+    clearEnvironment: true
+    environment: service.plainEnv
+    command: ["/usr/bin/python3", "-I", service.pluginDir + "bin/varta-locate", "--json"]
     stdout: StdioCollector {
       onStreamFinished: {
         let found
@@ -311,16 +348,16 @@ Item {
 
   // ---------------------------------------------------------------- the sound
 
-  Process { id: player }
+  Process { id: player; clearEnvironment: true; environment: service.soundEnv }
 
   // Written by a helper of our own rather than by `omarchy-bar set`, which
   // tells the shell and makes it rebuild every bar widget — destroying the one
   // you just clicked. The change still lands within a second, through the
   // FileView, with nothing torn down.
-  Process { id: writer }
+  Process { id: writer; clearEnvironment: true; environment: service.configEnv }
 
   function saveAlso(regions) {
-    writer.command = ["/usr/bin/python3", service.pluginDir + "bin/varta-config",
+    writer.command = ["/usr/bin/python3", "-I", service.pluginDir + "bin/varta-config",
                       "also", regions.join(", ")]
     writer.running = true
   }
@@ -378,6 +415,8 @@ Item {
   Process {
     id: dressWindow
     running: true
+    clearEnvironment: true
+    environment: service.hyprEnv
     command: ["/usr/bin/hyprctl", "eval",
       'hl.window_rule({ match = { class = "^org.quickshell$", title = "^Varta$" }, '
       + 'tag = "-default-opacity", opacity = "1 1", float = true, center = true }) '
