@@ -336,6 +336,19 @@ Item {
     service.saveAlso(next)
   }
 
+  // The picker is a window of its own, held here rather than in the bar widget:
+  // saving a setting rebuilds bar widgets, and a chooser that is destroyed by
+  // the act of saving cannot be used to choose more than one thing.
+  property bool pickerOpen: false
+
+  function openPicker() { service.pickerOpen = true }
+
+  Loader {
+    active: service.pickerOpen
+    source: Qt.resolvedUrl("Picker.qml")
+    onLoaded: if (item) item.service = service
+  }
+
   function isWatched(name) {
     for (const current of service.also) if (current === name) return true
     return false

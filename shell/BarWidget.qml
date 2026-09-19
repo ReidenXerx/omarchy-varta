@@ -45,6 +45,7 @@ BarWidget {
 
   onBarChanged: findService()
 
+
   readonly property bool ready: root.varta && root.varta.region !== ""
   readonly property bool raised: root.varta ? root.varta.raised : false
   readonly property bool calm: root.varta ? root.varta.calm : false
@@ -89,47 +90,11 @@ BarWidget {
 
   property bool cardOpen: false
   // The card has two faces: what it knows, and which places to watch.
-  property bool picking: false
 
-  // Chosen here and written once, on the way out.
-  //
-  // Saving a widget option makes the shell rebuild its bar widgets, which
-  // closes this card — so writing on every tap would let you add exactly one
-  // region per visit. Collected instead, and saved when you leave.
-  property var pending: []
 
-  function startPicking() {
-    const from = root.varta ? root.varta.also : []
-    root.pending = from.slice()
-    root.picking = true
-  }
 
-  function pendingHas(name) {
-    for (const current of root.pending) if (current === name) return true
-    return false
-  }
 
-  function togglePending(name) {
-    if (!root.varta || name === root.varta.region) return
-    const next = []
-    let had = false
-    for (const current of root.pending) {
-      if (current === name) had = true
-      else next.push(current)
-    }
-    if (!had) next.push(name)
-    root.pending = next
-  }
 
-  function finishPicking() {
-    root.picking = false
-    if (!root.varta) return
-    const before = root.varta.also.slice().sort().join("|")
-    const after = root.pending.slice().sort().join("|")
-    if (before !== after) root.varta.saveAlso(root.pending)
-  }
-
-  onCardOpenChanged: if (!root.cardOpen && root.picking) root.finishPicking()
 
   function wordFor(alert) {
     if (!root.varta || root.varta.health !== "ok") return "not watching"
@@ -243,10 +208,7 @@ BarWidget {
     open: root.cardOpen && !!root.varta
     padding: Style.space(8)
     contentWidth: card.fittedContentWidth(Style.space(300))
-    // The picker's height is stated, not measured. Measuring a column that
-    // contains a list, while the list sits inside the thing being measured, is
-    // the loop that made this card vanish twice.
-    contentHeight: card.fittedContentHeight(root.picking ? 396 : cardColumn.implicitHeight)
+    contentHeight: card.fittedContentHeight(cardColumn.implicitHeight)
     onVisibleChanged: if (!visible) root.cardOpen = false
 
     Column {
@@ -254,7 +216,6 @@ BarWidget {
       anchors.left: parent.left
       anchors.right: parent.right
       spacing: Style.space(3)
-      visible: !root.picking
 
       Text {
         width: parent.width
@@ -374,7 +335,7 @@ BarWidget {
             onClicked: {
               if (!root.varta) return
               const what = entry.modelData.action
-              if (what === "pick") { root.startPicking(); return }
+              if (what === "pick") { root.varta.openPicker(); root.cardOpen = false; return }
               if (what === "test") root.varta.rehearse()
               else if (what === "dismiss") root.varta.dismiss()
               else if (what === "unhide") root.varta.unhide()
@@ -398,108 +359,5 @@ BarWidget {
       }
     }
 
-    // ------------------------------------------------------ which places
-    Column {
-      id: pickColumn
-      anchors.left: parent.left
-      anchors.right: parent.right
-      spacing: Style.space(3)
-      visible: root.picking
-
-      Text {
-        width: parent.width
-        text: "Tap the places you want watched. Yours is marked ★ and is set "
-              + "by detection. Saved when you tap Done."
-        wrapMode: Text.WordWrap
-        color: Color.muted
-        font.family: Style.font.family
-        font.pixelSize: Style.font.caption
-        bottomPadding: Style.space(3)
-      }
-
-      ListView {
-        width: parent.width
-        // A fixed height on purpose. Sizing this to its own contentHeight, while
-        // the card sizes itself to this column, is a loop — and QML resolves a
-        // loop by giving the card no height at all, so it simply never appears.
-        height: 300
-        clip: true
-        model: root.varta ? root.varta.knownRegions : []
-        boundsBehavior: Flickable.StopAtBounds
-
-        delegate: Rectangle {
-          id: row
-          required property var modelData
-          width: pickColumn.width
-          height: Style.space(28)
-          radius: Style.space(6)
-          readonly property bool mine: root.varta && modelData === root.varta.region
-          readonly property bool kept: root.pendingHas(modelData)
-          color: rowHover.hovered && !row.mine
-                 ? Style.hoverFillFor(Color.popups.text, Color.accent) : "transparent"
-
-          HoverHandler { id: rowHover }
-
-          Text {
-            anchors.left: parent.left
-            anchors.leftMargin: Style.space(8)
-            anchors.verticalCenter: parent.verticalCenter
-            width: Style.space(18)
-            text: row.mine ? "\u2605" : (row.kept ? "\u2713" : "")
-            color: row.mine ? Color.accent : Color.popups.text
-            font.family: Style.font.family
-            font.pixelSize: Style.font.caption
-          }
-
-          Text {
-            anchors.left: parent.left
-            anchors.leftMargin: Style.space(28)
-            anchors.right: parent.right
-            anchors.rightMargin: Style.space(8)
-            anchors.verticalCenter: parent.verticalCenter
-            text: row.modelData
-            elide: Text.ElideRight
-            color: row.mine || row.kept ? Color.popups.text : Color.muted
-            font.family: Style.font.family
-            font.pixelSize: Style.font.caption
-          }
-
-          MouseArea {
-            anchors.fill: parent
-            enabled: !row.mine
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.togglePending(row.modelData)
-          }
-        }
-      }
-
-      Rectangle {
-        width: parent.width
-        height: Style.space(28)
-        radius: Style.space(6)
-        color: backHover.hovered ? Style.hoverFillFor(Color.popups.text, Color.accent)
-                                 : "transparent"
-
-        HoverHandler { id: backHover }
-
-        Text {
-          anchors.left: parent.left
-          anchors.leftMargin: Style.space(8)
-          anchors.verticalCenter: parent.verticalCenter
-          text: root.pending.length === 0 ? "\u2190  Done"
-              : "\u2190  Done · watching " + root.pending.length
-                + (root.pending.length === 1 ? " other place" : " other places")
-          color: Color.popups.text
-          font.family: Style.font.family
-          font.pixelSize: Style.font.body
-        }
-
-        MouseArea {
-          anchors.fill: parent
-          cursorShape: Qt.PointingHandCursor
-          onClicked: root.finishPicking()
-        }
-      }
-    }
   }
 }
