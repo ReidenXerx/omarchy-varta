@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "reidenxerx.varta",
   "name": "Varta",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "ReidenXerx",
   "license": "MIT",
   "description": "An air raid alert watch for the Ukrainian alert feed, in your bar and across your screen. Picks your oblast, shows a band over everything the moment it goes under alert, and — the part that matters — says just as loudly when it has stopped being able to see the feed. A companion to the official app and the sirens, never a replacement.",
