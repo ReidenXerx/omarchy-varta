@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import pathlib
 import signal
 import sys
@@ -25,6 +26,41 @@ import urllib.request
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "app"))
 from watchcore import Reading, Watch, backoff, plain, plainly  # noqa: E402
+from history import Ledger, Transition, trim  # noqa: E402
+
+def history_path() -> pathlib.Path:
+    base = os.environ.get("XDG_STATE_HOME") or os.path.join(
+        os.environ.get("HOME", ""), ".local", "state")
+    return pathlib.Path(base) / "varta" / "history.jsonl"
+
+
+def remember(transitions: list) -> None:
+    """Append what changed. Best effort on purpose: a watch that cannot write
+    its diary must still watch, so every failure here is swallowed rather than
+    allowed to take the poller down with it."""
+    if not transitions:
+        return
+    path = history_path()
+    try:
+        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        # O_NOFOLLOW: this lives under the user's own state directory, and a
+        # symlink dropped in its place would have us appending somewhere else.
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW, 0o600)
+        try:
+            os.write(fd, ("".join(t.as_line() + "\n" for t in transitions)).encode("utf-8"))
+        finally:
+            os.close(fd)
+    except OSError:
+        return
+    try:
+        if path.stat().st_size > 2 * 1024 * 1024:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+            tmp = path.with_suffix(".jsonl.new")
+            tmp.write_text("\n".join(trim(lines)) + "\n", encoding="utf-8")
+            os.replace(tmp, path)
+    except OSError:
+        pass
+
 
 def die_with_parent() -> None:
     """Ask the kernel to kill this process when whoever started it goes away.
@@ -114,6 +150,9 @@ def clocks() -> tuple[float, float]:
 def run(region: str, others: tuple[str, ...], every: int, once: bool,
         feed: str = FEED) -> int:
     watch = Watch(region=region, others=others)
+    # Remembers only what it last saw per region, so a restart costs nothing
+    # and invents nothing.
+    ledger = Ledger()
     known: list[str] = []
     awake, booted = clocks()
     while True:
@@ -133,7 +172,18 @@ def run(region: str, others: tuple[str, ...], every: int, once: bool,
             watch.failed(now)
             error = f"{type(problem).__name__}: {problem}"[:200]
 
-        line = watch.snapshot(dt.datetime.now(dt.timezone.utc))
+        # What changed since the last poll, for the history. Only recorded while
+        # the watch can actually see: a blind poller writing "clear" would invent
+        # the end of an alert that may still be running.
+        snap_at = dt.datetime.now(dt.timezone.utc)
+        line = watch.snapshot(snap_at)
+        if line.get("alert") is not None:
+            changes = [t for t in (
+                [ledger.observe(line.get("region", ""), bool(line["alert"]), snap_at)]
+                + [ledger.observe(a.get("region", ""), bool(a.get("alert")), snap_at)
+                   for a in (line.get("also") or []) if a.get("alert") is not None]
+            ) if t]
+            remember(changes)
         # The regions the feed actually has, so nothing downstream has to keep
         # its own copy of the list and drift from it.
         line["known"] = known

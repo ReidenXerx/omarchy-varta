@@ -1,0 +1,114 @@
+#!/usr/bin/python3
+"""What the watch has seen, summarised.
+
+Reads the transition log the watcher appends to and answers the two questions
+people actually ask after a bad week: how much of it was spent under alert, and
+whether the thing waking them at three in the morning really does prefer three
+in the morning.
+
+Prints JSON for the panel, or a short human summary for a terminal.
+"""
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import os
+import pathlib
+import stat
+import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "app"))
+from history import Transition, summarise  # noqa: E402
+
+# A transition is under 120 bytes; this is far more than the writer's own cap
+# and still small enough that a runaway file cannot be read into memory.
+CEILING = 4 * 1024 * 1024
+
+
+def history_path() -> pathlib.Path:
+    base = os.environ.get("XDG_STATE_HOME") or os.path.join(
+        os.environ.get("HOME", ""), ".local", "state")
+    return pathlib.Path(base) / "varta" / "history.jsonl"
+
+
+def read(path: pathlib.Path) -> list[Transition]:
+    """Every transition on file. A missing file is simply no history, not an
+    error: the first week of use is the normal case, not a failure."""
+    try:
+        # O_NOFOLLOW for the same reason the writer uses it: this sits in the
+        # user's own state directory, and a symlink there should not redirect us.
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    except OSError:
+        return []
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+            return []
+        with os.fdopen(fd, "rb", buffering=0) as handle:
+            raw = handle.read(CEILING)
+    except OSError:
+        return []
+    out = []
+    for line in raw.decode("utf-8", "replace").splitlines():
+        t = Transition.parse(line)
+        if t:
+            out.append(t)
+    return out
+
+
+def spell(seconds: int) -> str:
+    """Durations the way a person says them out loud."""
+    if seconds < 60:
+        return f"{seconds}s"
+    hours, minutes = divmod(seconds // 60, 60)
+    return f"{hours}h {minutes:02d}m" if hours else f"{minutes}m"
+
+
+def sparkline(counts: list[int]) -> str:
+    blocks = " ▁▂▃▄▅▆▇█"
+    top = max(counts) or 1
+    return "".join(blocks[min(8, round(c / top * 8))] for c in counts)
+
+
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--days", type=int, default=7, help="how far back to look")
+    parser.add_argument("--json", action="store_true", help="for the panel")
+    args = parser.parse_args(argv[1:])
+    days = max(1, min(args.days, 365))
+
+    now = dt.datetime.now(dt.timezone.utc)
+    summary = summarise(read(history_path()), now, days=days)
+
+    if args.json:
+        print(json.dumps(summary, ensure_ascii=False))
+        return 0
+
+    if not summary["total"] and not summary["ongoing"]:
+        print(f"Nothing recorded in the last {days} days.")
+        return 0
+
+    print(f"Last {days} days")
+    for r in summary["regions"]:
+        word = "alert" if r["count"] == 1 else "alerts"
+        print(f"  {r['region']:<24} {r['count']:>3} {word} · {spell(r['seconds'])}")
+    if any(summary["byHour"]):
+        print(f"\n  {sparkline(summary['byHour'])}\n  00      06      12      18      23"
+              "   ← alerts by the hour they began")
+    if summary["longest"]:
+        began = dt.datetime.fromisoformat(summary["longest"]["start"]).astimezone()
+        print(f"\n  longest: {spell(summary['longest']['seconds'])}, "
+              f"{began:%a %d %b %H:%M}")
+    for s in summary["ongoing"]:
+        print(f"  running: {s['region']} — {spell(s['seconds'])} so far")
+    if summary["quietSeconds"] is not None:
+        print(f"  quiet for {spell(summary['quietSeconds'])}")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main(sys.argv))
+    except KeyboardInterrupt:
+        sys.exit(130)
