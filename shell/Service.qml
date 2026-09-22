@@ -169,6 +169,8 @@ Item {
 
   onRaisedChanged: {
     service.freshlyRaised = service.raised
+    // An alert beginning or ending is exactly when the summary changed.
+    if (service.panelShowing) service.refreshHistory()
     if (service.raised) {
       newsworthy.restart()
     } else {
@@ -396,6 +398,36 @@ Item {
     service.saveAlso(next)
   }
 
+  // ------------------------------------------------------------- the history
+
+  // What the watch has already seen. Read on demand rather than kept live: it
+  // is a small file, the panel is the only thing that wants it, and a summary
+  // that is a few minutes stale is a summary of the last seven days.
+  property var history: null
+
+  function refreshHistory() {
+    historian.running = false
+    historian.running = true
+  }
+
+  Process {
+    id: historian
+    clearEnvironment: true
+    environment: service.plainEnv
+    command: ["/usr/bin/python3", "-I", service.pluginDir + "bin/varta-history", "--json"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          service.history = JSON.parse(text)
+        } catch (problem) {
+          // No history yet is the normal state in the first week, not a fault.
+          service.history = null
+        }
+      }
+    }
+  }
+
+
   // The panel is a window of its own, held here rather than in the bar widget:
   // saving a setting rebuilds bar widgets, and anything living inside one is
   // destroyed mid-click.
@@ -412,6 +444,7 @@ Item {
 
   function showPanel() {
     if (service.panelShowing) return
+    service.refreshHistory()
     // Off and on again, imperatively: a window that went away without telling
     // us leaves the Loader loaded, and only a fresh one comes back.
     panelLoader.active = false
@@ -512,6 +545,12 @@ Item {
     }
 
     function show(): string { return service.unhide() }
+
+    // The same summary the panel draws, for a terminal or a script.
+    function history(): string {
+      service.refreshHistory()
+      return service.history ? JSON.stringify(service.history) : "no history yet"
+    }
 
     function status(): string {
       return JSON.stringify({

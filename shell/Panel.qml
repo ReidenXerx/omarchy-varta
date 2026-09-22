@@ -56,6 +56,15 @@ FloatingWindow {
     return alert === true ? "#F87171" : Color.muted
   }
 
+  // Durations the way a person says them out loud.
+  function spell(seconds) {
+    if (seconds === undefined || seconds === null) return ""
+    if (seconds < 60) return seconds + "s"
+    const minutes = Math.floor(seconds / 60)
+    const h = Math.floor(minutes / 60), m = minutes % 60
+    return h ? (h + "h " + (m < 10 ? "0" : "") + m + "m") : (m + "m")
+  }
+
   function has(name) {
     for (const current of panel.chosen) if (current === name) return true
     return false
@@ -198,6 +207,165 @@ FloatingWindow {
             font.pixelSize: Style.font.caption
           }
         }
+      }
+    }
+
+    // ------------------------------------------------------- what has happened
+    //
+    // An alarm that only knows this minute tells you nothing about the week you
+    // have just had. Two questions get answered here and no others: how much of
+    // it was spent under alert, and what hour they tend to start -- which is the
+    // one that turns out to be actionable, because it is the hour you decide
+    // whether to sleep through.
+    ColumnLayout {
+      Layout.fillWidth: true
+      Layout.topMargin: 10
+      spacing: 5
+      visible: panel.service && panel.service.history
+               && (panel.service.history.total > 0
+                   || (panel.service.history.ongoing || []).length > 0)
+
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 10
+
+        Text {
+          textFormat: Text.PlainText
+          text: "Last " + (panel.service ? panel.service.history.days : 7) + " days"
+          color: Color.foreground
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+          font.weight: Font.DemiBold
+        }
+
+        Item { Layout.fillWidth: true }
+
+        Text {
+          textFormat: Text.PlainText
+          text: panel.service && panel.service.history.quietSeconds !== null
+                ? "quiet for " + panel.spell(panel.service.history.quietSeconds)
+                : ((panel.service.history.ongoing || []).length
+                   ? "under alert now" : "")
+          color: Color.muted
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+        }
+      }
+
+      Repeater {
+        model: panel.service && panel.service.history
+               ? panel.service.history.regions : []
+
+        delegate: RowLayout {
+          required property var modelData
+          Layout.fillWidth: true
+          spacing: 10
+
+          Text {
+            textFormat: Text.PlainText
+            Layout.fillWidth: true
+            text: modelData.region
+            elide: Text.ElideRight
+            color: Color.muted
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+          }
+
+          Text {
+            textFormat: Text.PlainText
+            text: modelData.count + (modelData.count === 1 ? " alert \u00b7 " : " alerts \u00b7 ")
+                  + panel.spell(modelData.seconds)
+            color: Color.foreground
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+          }
+        }
+      }
+
+      // Twenty-four bars, one per hour, each the height of how many alerts
+      // began in it. Drawn rather than written because the shape is the point:
+      // you are looking for where the tall ones cluster, not for a number.
+      RowLayout {
+        Layout.fillWidth: true
+        Layout.topMargin: 3
+        spacing: 2
+        visible: panel.service && panel.service.history
+                 && panel.service.history.byHour.some(function (n) { return n > 0 })
+
+        Repeater {
+          model: panel.service && panel.service.history ? panel.service.history.byHour : []
+
+          delegate: Item {
+            required property var modelData
+            required property int index
+            Layout.fillWidth: true
+            implicitHeight: 26
+
+            readonly property int tallest: {
+              let top = 1
+              const hours = panel.service.history.byHour
+              for (let i = 0; i < hours.length; i++) top = Math.max(top, hours[i])
+              return top
+            }
+
+            Rectangle {
+              anchors.bottom: parent.bottom
+              width: parent.width
+              // A floor of 2px: an hour with one alert in it should still be
+              // visible next to an hour with thirty.
+              height: modelData > 0
+                      ? Math.max(2, Math.round(parent.height * modelData / parent.tallest))
+                      : 1
+              radius: 1
+              color: modelData > 0 ? Color.accent : Qt.rgba(1, 1, 1, 0.10)
+              opacity: modelData > 0 ? 0.85 : 1
+            }
+          }
+        }
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        visible: panel.service && panel.service.history
+                 && panel.service.history.byHour.some(function (n) { return n > 0 })
+
+        // One slot per hour, same as the bars, so a label sits over the hour it
+        // names rather than at an evenly spaced fifth of the width.
+        Repeater {
+          model: 24
+          delegate: Item {
+            required property int index
+            Layout.fillWidth: true
+            implicitHeight: hourMark.implicitHeight
+
+            Text {
+              id: hourMark
+              anchors.horizontalCenter: parent.horizontalCenter
+              textFormat: Text.PlainText
+              visible: index % 6 === 0 || index === 23
+              text: (index < 10 ? "0" : "") + index
+              color: Color.muted
+              opacity: 0.7
+              font.family: Style.font.family
+              font.pixelSize: Math.round(Style.font.caption * 0.85)
+            }
+          }
+        }
+      }
+
+      Text {
+        textFormat: Text.PlainText
+        Layout.fillWidth: true
+        visible: panel.service && panel.service.history && panel.service.history.longest
+        text: panel.service && panel.service.history.longest
+              ? "longest " + panel.spell(panel.service.history.longest.seconds)
+                + " \u00b7 " + panel.service.history.longest.region
+              : ""
+        elide: Text.ElideRight
+        color: Color.muted
+        opacity: 0.85
+        font.family: Style.font.family
+        font.pixelSize: Math.round(Style.font.caption * 0.9)
       }
     }
 
