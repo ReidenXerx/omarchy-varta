@@ -124,9 +124,25 @@ Item {
 
   readonly property bool banded: service.raised && service.dismissed !== service.alertKey
 
+  // The same courtesy for "not watching". Being unable to see is worth saying
+  // loudly, but a band you cannot put away is a band that gets covered by a
+  // window and resented, and the struck-through shield in the bar keeps saying
+  // it either way -- the honest signal survives, only the full-width one goes.
+  //
+  // Counted per episode, so putting it away means "I know, stop covering my
+  // screen", not "never mention this again": recovering and going blind a
+  // second time is a new thing to be told about.
+  property string lostDismissed: ""
+  property int lostEpisode: 0
+  readonly property string lostKey: "lost:" + service.lostEpisode
+  onLostChanged: if (service.lost) service.lostEpisode++
+
+  readonly property bool bandedLost: service.lost && service.lostDismissed !== service.lostKey
+
   // And a way back, for a band put away by mistake.
   function unhide() {
     service.dismissed = ""
+    service.lostDismissed = ""
     return "band shown again"
   }
 
@@ -136,9 +152,15 @@ Item {
       rehearsal.stop()
       return "rehearsal ended"
     }
-    if (!service.raised) return "nothing to dismiss"
-    service.dismissed = service.alertKey
-    return "band hidden until this alert ends"
+    if (service.raised) {
+      service.dismissed = service.alertKey
+      return "band hidden until this alert ends"
+    }
+    if (service.lost) {
+      service.lostDismissed = service.lostKey
+      return "band hidden until the watch recovers"
+    }
+    return "nothing to dismiss"
   }
 
   // True for the first minute of an alert, which is how long movement is worth
@@ -504,6 +526,8 @@ Item {
         sourceAgeSeconds: service.sourceAge,
         rehearsing: service.rehearsing,
         bandDismissed: service.raised && service.dismissed === service.alertKey,
+        lost: service.lost,
+        bandShowing: service.banded || service.bandedLost,
       })
     }
   }
@@ -522,7 +546,7 @@ Item {
   }
 
   Loader {
-    active: service.banded || service.lost
+    active: service.banded || service.bandedLost
     source: Qt.resolvedUrl("Banner.qml")
     onLoaded: if (item) item.service = service
   }

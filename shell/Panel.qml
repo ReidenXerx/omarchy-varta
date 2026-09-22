@@ -292,9 +292,12 @@ FloatingWindow {
       Repeater {
         model: {
           const rows = []
-          if (panel.service && panel.service.banded)
+          // Offered whenever a band is actually on screen, whether it is there
+          // because of an alert or because the watch has gone blind.
+          if (panel.service && (panel.service.banded || panel.service.bandedLost))
             rows.push({ label: "Put the band away", action: "dismiss" })
-          if (panel.service && panel.service.raised && !panel.service.banded)
+          if (panel.service && ((panel.service.raised && !panel.service.banded)
+                                || (panel.service.lost && !panel.service.bandedLost)))
             rows.push({ label: "Show the band again", action: "unhide" })
           rows.push({ label: "Test the alert", action: "test" })
           rows.push({ label: "Find my region", action: "detect" })
