@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import qs.Commons
+import qs.Commons as Commons
 
 // Everything Varta knows, and everything you can do about it, in one window.
 //
@@ -35,7 +36,7 @@ FloatingWindow {
   title: "Varta"
   // Opaque on purpose: themes give these colours an alpha, and a window you
   // can read the desktop through is a window you misread.
-  color: Qt.rgba(Color.background.r, Color.background.g, Color.background.b, 1)
+  color: Qt.rgba(Commons.Color.background.r, Commons.Color.background.g, Commons.Color.background.b, 1)
 
   // "Not watching" is a serious thing to say, so it is only said when it is
   // true. A watcher coming back after a settings change is not the feed being
@@ -52,8 +53,8 @@ FloatingWindow {
 
   function colourFor(alert) {
     if (!panel.service || panel.service.lost) return "#F2B441"
-    if (panel.service.health !== "ok") return Color.muted
-    return alert === true ? "#F87171" : Color.muted
+    if (panel.service.health !== "ok") return Commons.Color.muted
+    return alert === true ? "#F87171" : Commons.Color.muted
   }
 
   // Durations the way a person says them out loud.
@@ -102,7 +103,7 @@ FloatingWindow {
     // Alpha forced, not inherited: the theme's background colour is itself
     // transparent, so painting with it paints nothing and you read your
     // terminal through the window. Take its hue, keep none of its alpha.
-    color: Qt.rgba(Color.background.r, Color.background.g, Color.background.b, 1)
+    color: Qt.rgba(Commons.Color.background.r, Commons.Color.background.g, Commons.Color.background.b, 1)
   }
 
   ColumnLayout {
@@ -127,7 +128,7 @@ FloatingWindow {
           Layout.fillWidth: true
           text: panel.ready ? panel.service.region : "No region yet"
           elide: Text.ElideRight
-          color: Color.foreground
+          color: Commons.Color.foreground
           font.family: Style.font.family
           font.pixelSize: Math.round(Style.font.body * 1.25)
           font.weight: Font.DemiBold
@@ -140,7 +141,7 @@ FloatingWindow {
           textFormat: Text.PlainText
           visible: panel.ready
           text: panel.service ? panel.wordFor(panel.service.reading.alert) : ""
-          color: panel.service ? panel.colourFor(panel.service.reading.alert) : Color.muted
+          color: panel.service ? panel.colourFor(panel.service.reading.alert) : Commons.Color.muted
           font.family: Style.font.family
           font.pixelSize: Style.font.body
           font.weight: Font.DemiBold
@@ -162,7 +163,7 @@ FloatingWindow {
               ? "Reading is " + panel.service.sourceAge + "s old"
             : panel.service.lost ? "No current reading — " + (panel.service.trouble || "cannot reach the feed")
             : "Waiting for the first reading…"
-        color: Color.muted
+        color: Commons.Color.muted
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
       }
@@ -191,7 +192,7 @@ FloatingWindow {
             Layout.fillWidth: true
             text: "· " + modelData.region
             elide: Text.ElideRight
-            color: Color.muted
+            color: Commons.Color.muted
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
           }
@@ -232,7 +233,7 @@ FloatingWindow {
         Text {
           textFormat: Text.PlainText
           text: "Last " + (panel.service ? panel.service.history.days : 7) + " days"
-          color: Color.foreground
+          color: Commons.Color.foreground
           font.family: Style.font.family
           font.pixelSize: Style.font.caption
           font.weight: Font.DemiBold
@@ -246,7 +247,7 @@ FloatingWindow {
                 ? "quiet for " + panel.spell(panel.service.history.quietSeconds)
                 : ((panel.service.history.ongoing || []).length
                    ? "under alert now" : "")
-          color: Color.muted
+          color: Commons.Color.muted
           font.family: Style.font.family
           font.pixelSize: Style.font.caption
         }
@@ -266,7 +267,7 @@ FloatingWindow {
             Layout.fillWidth: true
             text: modelData.region
             elide: Text.ElideRight
-            color: Color.muted
+            color: Commons.Color.muted
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
           }
@@ -275,7 +276,7 @@ FloatingWindow {
             textFormat: Text.PlainText
             text: modelData.count + (modelData.count === 1 ? " alert \u00b7 " : " alerts \u00b7 ")
                   + panel.spell(modelData.seconds)
-            color: Color.foreground
+            color: Commons.Color.foreground
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
           }
@@ -317,7 +318,7 @@ FloatingWindow {
                       ? Math.max(2, Math.round(parent.height * modelData / parent.tallest))
                       : 1
               radius: 1
-              color: modelData > 0 ? Color.accent : Qt.rgba(1, 1, 1, 0.10)
+              color: modelData > 0 ? Commons.Color.accent : Qt.rgba(1, 1, 1, 0.10)
               opacity: modelData > 0 ? 0.85 : 1
             }
           }
@@ -344,7 +345,7 @@ FloatingWindow {
               textFormat: Text.PlainText
               visible: index % 6 === 0 || index === 23
               text: (index < 10 ? "0" : "") + index
-              color: Color.muted
+              color: Commons.Color.muted
               opacity: 0.7
               font.family: Style.font.family
               font.pixelSize: Math.round(Style.font.caption * 0.85)
@@ -362,7 +363,7 @@ FloatingWindow {
                 + " \u00b7 " + panel.service.history.longest.region
               : ""
         elide: Text.ElideRight
-        color: Color.muted
+        color: Commons.Color.muted
         opacity: 0.85
         font.family: Style.font.family
         font.pixelSize: Math.round(Style.font.caption * 0.9)
@@ -385,7 +386,7 @@ FloatingWindow {
       wrapMode: Text.WordWrap
       text: "Where you are is marked ★. Anywhere else you tick is shown in the bar "
             + "and sounded once, quietly — it never puts the band on your screen."
-      color: Color.muted
+      color: Commons.Color.muted
       font.family: Style.font.family
       font.pixelSize: Style.font.caption
     }
@@ -420,7 +421,7 @@ FloatingWindow {
           anchors.verticalCenter: parent.verticalCenter
           width: 20
           text: row.mine ? "★" : (row.kept ? "✓" : "")
-          color: row.mine ? Color.accent : Color.foreground
+          color: row.mine ? Commons.Color.accent : Commons.Color.foreground
           font.family: Style.font.family
           font.pixelSize: Style.font.body
         }
@@ -437,7 +438,7 @@ FloatingWindow {
           anchors.verticalCenter: parent.verticalCenter
           text: row.modelData
           elide: Text.ElideRight
-          color: row.mine || row.kept ? Color.foreground : Color.muted
+          color: row.mine || row.kept ? Commons.Color.foreground : Commons.Color.muted
           font.family: Style.font.family
           font.pixelSize: Style.font.body
         }
@@ -491,7 +492,7 @@ FloatingWindow {
             id: quietLabel
             anchors.centerIn: parent
             text: modelData.label
-            color: Color.muted
+            color: Commons.Color.muted
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
           }
@@ -528,7 +529,7 @@ FloatingWindow {
               ? "Watching only where you are"
               : "Watching " + panel.chosen.length
                 + (panel.chosen.length === 1 ? " other place" : " other places")
-        color: Color.muted
+        color: Commons.Color.muted
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
       }
@@ -542,7 +543,7 @@ FloatingWindow {
           implicitHeight: 34
           radius: 8
           color: modelData.save
-                 ? (buttonHover.hovered ? Color.accent : Qt.rgba(1, 1, 1, 0.14))
+                 ? (buttonHover.hovered ? Commons.Color.accent : Qt.rgba(1, 1, 1, 0.14))
                  : (buttonHover.hovered ? Qt.rgba(1, 1, 1, 0.14) : "transparent")
           border.width: 1
           border.color: Qt.rgba(1, 1, 1, 0.18)
@@ -557,7 +558,7 @@ FloatingWindow {
             id: label
             anchors.centerIn: parent
             text: modelData.label
-            color: Color.foreground
+            color: Commons.Color.foreground
             font.family: Style.font.family
             font.pixelSize: Style.font.body
           }
@@ -579,7 +580,7 @@ FloatingWindow {
       Layout.fillWidth: true
       wrapMode: Text.WordWrap
       text: "Unofficial, and oblast-wide — trust the siren and the official app."
-      color: Color.muted
+      color: Commons.Color.muted
       opacity: 0.85
       font.family: Style.font.family
       font.pixelSize: Style.font.caption

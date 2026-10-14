@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 
 // The watch, in the bar.
@@ -57,10 +58,10 @@ BarWidget {
   readonly property int elsewhere: root.varta ? root.varta.alsoRaisedCount : 0
 
   readonly property color stateColor: {
-    if (!root.ready) return Color.muted
+    if (!root.ready) return Commons.Color.muted
     if (root.raised) return "#F87171"
     if (root.blind) return "#FBBF24"
-    return root.bar ? root.bar.barForeground : Color.foreground
+    return root.bar ? root.bar.barForeground : Commons.Color.foreground
   }
 
   readonly property string tooltip: {
