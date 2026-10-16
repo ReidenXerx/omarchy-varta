@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0 http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
+  <kcfgfile name=""/>
+  <group name="General">
+    <!-- Where you are, exactly as the feed names it, or "Detect automatically". -->
+    <entry name="region" type="String">
+      <default>Detect automatically</default>
+    </entry>
+    <!-- Other regions kept an eye on, comma separated: shown and sounded once, quietly, never a band. -->
+    <entry name="also" type="String">
+      <default></default>
+    </entry>
+    <entry name="sound" type="Bool">
+      <default>true</default>
+    </entry>
+    <!-- Glass, Bell or Marimba. -->
+    <entry name="voice" type="String">
+      <default>Glass</default>
+    </entry>
+    <entry name="repeatEvery" type="Int">
+      <default>45</default>
+    </entry>
+    <entry name="sayTimes" type="Int">
+      <default>3</default>
+    </entry>
+    <!-- Seconds the band stays full height before it becomes a strip. -->
+    <entry name="fullFor" type="Int">
+      <default>180</default>
+    </entry>
+  </group>
+</kcfg>

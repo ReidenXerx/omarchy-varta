@@ -1,0 +1,17 @@
+{
+  "KPackageStructure": "Plasma/Applet",
+  "KPlugin": {
+    "Authors": [{ "Name": "DuduPhudu", "Email": "" }],
+    "Category": "Online Services",
+    "Description": "An air raid alert watch for the Ukrainian alert feed: your oblast in the panel, a band and a sound the moment it goes under alert, and an honest 'not watching' when it cannot see the feed. A companion to the official app and the sirens, never a replacement.",
+    "Icon": "security-medium",
+    "Id": "app.duduphudu.varta",
+    "License": "MIT",
+    "Name": "Varta",
+    "Version": "1.1.1",
+    "Website": "https://duduphudu.app/plugins/varta/"
+  },
+  "X-Plasma-API-Minimum-Version": "6.0",
+  "X-Plasma-NotificationArea": "true",
+  "X-Plasma-NotificationAreaCategory": "SystemServices"
+}

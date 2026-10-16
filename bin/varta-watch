@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import fcntl
 import json
 import os
 import pathlib
@@ -60,6 +61,40 @@ def remember(transitions: list) -> None:
             os.replace(tmp, path)
     except OSError:
         pass
+
+
+def claim(state: pathlib.Path) -> int | None:
+    """The right to keep the reading at `state`: one watcher per file, so two
+    widgets never poll the feed twice. None when another watcher has it."""
+    state.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    info = os.lstat(state.parent)
+    if not os.path.isdir(state.parent) or os.path.islink(state.parent) or info.st_uid != os.getuid():
+        raise SystemExit(f"{state.parent} is not a private directory of ours")
+    fd = os.open(f"{state}.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        os.close(fd)
+        return None
+    return fd
+
+
+def publish(state: pathlib.Path, line: str) -> None:
+    """The latest reading, replaced whole, for a reader that cannot stream (a
+    Plasma widget). Never through a link, never half written."""
+    tmp = state.with_name(f".{state.name}.{os.getpid()}.tmp")
+    try:
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+        try:
+            os.write(fd, (line + "\n").encode("utf-8"))
+        finally:
+            os.close(fd)
+        os.replace(tmp, state)
+    except OSError:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
 
 
 def die_with_parent() -> None:
@@ -148,7 +183,7 @@ def clocks() -> tuple[float, float]:
 
 
 def run(region: str, others: tuple[str, ...], every: int, once: bool,
-        feed: str = FEED) -> int:
+        feed: str = FEED, state: pathlib.Path | None = None) -> int:
     watch = Watch(region=region, others=others)
     # Remembers only what it last saw per region, so a restart costs nothing
     # and invents nothing.
@@ -194,7 +229,10 @@ def run(region: str, others: tuple[str, ...], every: int, once: bool,
             # What a person reads, and what whoever has to fix it reads.
             line["error"] = plainly(error)
             line["detail"] = error
-        print(json.dumps(line, ensure_ascii=False), flush=True)
+        text = json.dumps(line, ensure_ascii=False)
+        print(text, flush=True)
+        if state is not None:
+            publish(state, text)
 
         if once:
             return 0 if watch.last_ok else 1
@@ -213,6 +251,8 @@ def main() -> int:
     parser.add_argument("--list", action="store_true", help="print the region names the feed uses")
     parser.add_argument("--feed", default=FEED,
                         help="where to read from; for proving what happens when it cannot be read")
+    parser.add_argument("--state", help="also keep the latest reading in this file (one watcher per file; "
+                        "a second one exits with 75)")
     args = parser.parse_args()
 
     die_with_parent()
@@ -232,7 +272,15 @@ def main() -> int:
     if args.every < 30:
         parser.error("polling faster than every 30s gets the feed to refuse us")
     others = tuple(name.strip() for name in args.also.split(",") if name.strip())
-    return run(args.region, others, args.every, args.once, args.feed)
+    state = None
+    if args.state:
+        state = pathlib.Path(args.state)
+        if not state.is_absolute():
+            parser.error("--state must be an absolute path")
+        if claim(state) is None:
+            print("another watcher keeps this reading", file=sys.stderr)
+            return 75
+    return run(args.region, others, args.every, args.once, args.feed, state)
 
 
 if __name__ == "__main__":

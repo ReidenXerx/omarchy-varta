@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Assemble the Plasma widget: the plasma/ package plus the shared core (the helpers, their Python and the sounds),
+# into dist/app.duduphudu.varta and dist/varta.plasmoid.
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+out="$root/dist/app.duduphudu.varta"
+rm -rf -- "${out:?}" "$root/dist/varta.plasmoid"
+mkdir -p "$out/contents/code/bin" "$out/contents/code/app" "$out/contents/code/assets"
+cp -r "$root/plasma/." "$out/"
+cp "$root/bin/varta-watch" "$root/bin/varta-locate" "$root/bin/varta-history" "$out/contents/code/bin/"
+cp "$root"/app/*.py "$out/contents/code/app/"
+cp "$root"/assets/*.wav "$out/contents/code/assets/"
+cp "$root/LICENSE" "$out/" 2>/dev/null || true
+chmod 755 "$out"/contents/code/bin/*
+(cd "$out" && /usr/bin/zip -qr "$root/dist/varta.plasmoid" .)
+echo "$out"

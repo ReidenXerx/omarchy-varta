@@ -164,9 +164,34 @@ Then add the Varta widget to your bar. It will work out which oblast you are in
 by itself; if it cannot, or gets it wrong, click the shield and set it straight
 from the panel.
 
+## On KDE Plasma
+
+Varta also comes as a Plasma 6 widget, for the panel or the system tray. Install
+it from the KDE Store (Add Widgets → Get New Widgets → search "Varta"), or build
+it here:
+
+```bash
+tools/build-plasma          # dist/varta.plasmoid
+kpackagetool6 -t Plasma/Applet -i dist/app.duduphudu.varta
+```
+
+It is the same watch: the same watcher asking the feed once a minute, the same
+honest "not watching", the same region detection, history, test and sounds. On
+Plasma the band is a strip at the top of the screen that Plasma keeps above
+everything, a fullscreen game or film included, and every alert, every all-clear
+and every loss of the feed is also a Plasma notification. The alert is a
+critical one, which stays until you dismiss it and shows through Do Not Disturb.
+
+A Plasma widget cannot read a stream, so the watcher also keeps its latest
+reading in a private file, `$XDG_RUNTIME_DIR/varta/plasma.json` (`--state`),
+and the widget reads that. A reading that stops changing counts as "not
+watching", exactly like a watcher that stopped. Only one watcher keeps that
+file, so a second Varta widget never asks the feed twice.
+
 ## Requirements
 
 Omarchy's Quickshell-based shell, and `paplay` for the sound. Nothing else.
+On Plasma: Plasma 6, Python 3 and `paplay`.
 
 ## Licence
 
