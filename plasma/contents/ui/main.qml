@@ -14,13 +14,23 @@ import org.kde.plasma.plasma5support as P5Support
 PlasmoidItem {
   id: root
 
-  readonly property string code: String(Qt.resolvedUrl("../code")).replace("file://", "")
+  readonly property string code: decodeURIComponent(String(Qt.resolvedUrl("../code")).replace("file://", ""))
 
   // Every helper starts from an empty environment with only what it needs: Python runs isolated on top of that.
   // PYTHONIOENCODING is not optional: region names are Cyrillic. The shell expands the runtime and state directories.
   readonly property string envPrefix: "/usr/bin/env -i HOME=\"$HOME\" PATH=/usr/bin:/bin LANG=C.UTF-8 PYTHONIOENCODING=utf-8"
-    + " XDG_RUNTIME_DIR=\"$XDG_RUNTIME_DIR\" XDG_STATE_HOME=\"$XDG_STATE_HOME\" "
-  readonly property string statePath: "\"$XDG_RUNTIME_DIR\"/varta/plasma.json"
+    + " XDG_RUNTIME_DIR=\"$XDG_RUNTIME_DIR\" ${XDG_STATE_HOME:+XDG_STATE_HOME=\"$XDG_STATE_HOME\"} "
+  // One reading file per place watched (where you are and the places kept an eye on), so two widgets watching
+  // different places each have their own watcher, and two watching the same share one.
+  readonly property string stateKey: {
+    var text = root.region + "|" + root.also.join(","), h = 5381
+    for (var i = 0; i < text.length; i++) h = ((h * 33) ^ text.charCodeAt(i)) >>> 0
+    return ("0000000" + h.toString(16)).slice(-8)
+  }
+  readonly property string statePath: "\"$XDG_RUNTIME_DIR\"/varta/plasma-" + root.stateKey + ".json"
+  // Notices and sounds get only what reaching the session needs.
+  readonly property string desktopEnv: "/usr/bin/env -i HOME=\"$HOME\" PATH=/usr/bin:/bin XDG_RUNTIME_DIR=\"$XDG_RUNTIME_DIR\""
+    + " ${DBUS_SESSION_BUS_ADDRESS:+DBUS_SESSION_BUS_ADDRESS=\"$DBUS_SESSION_BUS_ADDRESS\"} "
 
   function quote(s) { return "'" + String(s).replace(/'/g, "'\\''") + "'" }
   function helper(name) { return root.envPrefix + "/usr/bin/python3 -I " + root.quote(root.code + "/bin/" + name) }
@@ -70,11 +80,12 @@ PlasmoidItem {
   // ---------------------------------------------------------------- the watcher
 
   readonly property string watchCommand: root.region === "" ? ""
-    : root.helper("varta-watch") + " --region " + root.quote(root.region) + " --also " + root.quote(root.also.join(","))
-      + " --state " + root.statePath
+    : root.helper("varta-watch") + " --region=" + root.quote(root.region) + " --also=" + root.quote(root.also.join(","))
+      + " --state " + root.statePath + " >/dev/null"
   property string runningWatch: ""
   // Another Varta widget's watcher keeps the reading: this one only reads it.
   property bool sharing: false
+  property int shareTries: 0
 
   P5Support.DataSource {
     id: watchSource
@@ -88,7 +99,10 @@ PlasmoidItem {
       root.sharing = code === 75
       if (!root.sharing)
         root.reading = { health: "blind", region: root.region, error: "the watcher stopped (code " + code + ")" }
-      revive.interval = root.sharing ? 60000 : 5000
+      // 75 is another watcher keeping this same reading; it may be one just stopped for a change of place, so the
+      // first few tries come quickly.
+      root.shareTries = root.sharing ? root.shareTries + 1 : 0
+      revive.interval = root.sharing && root.shareTries > 3 ? 60000 : 5000
       revive.restart()
     }
   }
@@ -128,11 +142,11 @@ PlasmoidItem {
     repeat: true
     running: root.region !== ""
     triggeredOnStart: true
-    onTriggered: root.run("/usr/bin/head -c 262144 -- " + root.statePath + " # " + Date.now(), function (code, out) {
+    onTriggered: root.run("/usr/bin/timeout 5 /usr/bin/head -c 262144 -- " + root.statePath + " # " + Date.now(), function (code, out) {
       if (code !== 0 || out === "") return
       var next
       try { next = JSON.parse(out) } catch (e) { return }
-      if (!next || next.region !== root.region) return          // another widget's watcher, watching elsewhere
+      if (!next || typeof next !== "object" || next.region !== root.region) return
       root.absorb(next)
     })
   }
@@ -140,13 +154,27 @@ PlasmoidItem {
   // A reading older than this means the watcher stopped writing, however it stopped.
   readonly property int staleAfter: 6 * 60
 
+  // Fails closed: an "ok" reading counts only with a time that parses, is recent, and is not from the future.
   readonly property string health: {
     var h = String(root.reading.health || "blind")
-    if (h === "ok" && root.reading.at) {
-      var at = new Date(root.reading.at).getTime()
-      if (!isNaN(at) && (root.nowMs - at) / 1000 > root.staleAfter) return "stale"
+    if (h !== "ok") return h
+    var at = new Date(String(root.reading.at || "")).getTime()
+    if (!isFinite(at)) return "stale"
+    var age = (root.nowMs - at) / 1000
+    return age > root.staleAfter || age < -60 ? "stale" : "ok"
+  }
+
+  // A watcher whose reading has gone stale is restarted after two minutes: a hung request is never going to answer.
+  property double staleSince: 0
+  onHealthChanged: root.staleSince = root.health === "stale" ? Date.now() : 0
+  Timer {
+    interval: 15000
+    repeat: true
+    running: root.staleSince > 0
+    onTriggered: if (Date.now() - root.staleSince > 120000 && root.runningWatch !== "") {
+      root.staleSince = Date.now()
+      root.startWatch()
     }
-    return h
   }
   property double nowMs: Date.now()
   Timer { interval: 5000; repeat: true; running: true; onTriggered: root.nowMs = Date.now() }
@@ -185,20 +213,24 @@ PlasmoidItem {
       root.patient = true
       grace.restart()
     }
-    var wasRaised = root.raised
     var wasElsewhere = root.alsoRaisedCount
     root.reading = next
-    if (root.raised && !wasRaised) {
+    // What was announced, not what was last seen: an alert, a lost feed and then a clear reading still ends with the
+    // all-clear.
+    if (root.raised && !root.rehearsing && !root.announced) {
+      root.announced = true
       root.said = 1
       root.say("alert", false)
-      root.notify(true)
-    } else if (wasRaised && root.calm) {
+      root.notify("alert")
+    } else if (root.calm && root.announced) {
+      root.announced = false
       root.say("clear", false)
-      root.notify(false)
+      root.notify("clear")
     } else if (root.alsoRaisedCount > wasElsewhere) {
       root.say("alert", true)
     }
   }
+  property bool announced: false
 
   // ---------------------------------------------------------------- where we are
 
@@ -258,9 +290,12 @@ PlasmoidItem {
   function say(kind, soft) {
     if (!root.soundOn) return
     var file = root.quote(root.code + "/assets/" + kind + "-" + root.voice + ".wav")
+    // PULSE_SERVER only when it is set: set to nothing, libpulse refuses it as an invalid server and plays nothing.
     // Paplay's scale is out of 65536: somewhere else is heard a little under half as loud.
-    var env = "/usr/bin/env -i HOME=\"$HOME\" PATH=/usr/bin:/bin XDG_RUNTIME_DIR=\"$XDG_RUNTIME_DIR\" PULSE_SERVER=\"$PULSE_SERVER\" "
-    root.run(env + "/usr/bin/paplay " + (soft ? "--volume=27000 " : "") + file + " # " + Date.now(), null)
+    var env = "/usr/bin/env -i HOME=\"$HOME\" PATH=/usr/bin:/bin XDG_RUNTIME_DIR=\"$XDG_RUNTIME_DIR\" ${PULSE_SERVER:+PULSE_SERVER=\"$PULSE_SERVER\"} "
+    root.run(env + "/usr/bin/timeout 30 /usr/bin/paplay " + (soft ? "--volume=27000 " : "") + file + " # " + Date.now(), function (code) {
+      if (code !== 0) console.warn("varta: the sound could not be played (paplay " + code + ")")
+    })
   }
 
   property int said: 0
@@ -275,18 +310,32 @@ PlasmoidItem {
 
   // Plasma's own critical notifications stay until dismissed and show through Do Not Disturb. The all-clear takes
   // the alert's place rather than leaving it standing above.
+  // The lost feed has a notice of its own, replaced in the same way when the watch is back.
   property int noticeId: 0
-  function notify(raisedNow) {
-    var title = raisedNow ? (root.rehearsing ? "ТЕСТ · ПОВІТРЯНА ТРИВОГА" : "ПОВІТРЯНА ТРИВОГА") : "Відбій тривоги"
-    var body = raisedNow
-      ? (root.rehearsing ? "A test of the alert: no alert is in progress." : root.region + " · take shelter. Unofficial: trust the siren and the official app.")
-      : root.region + ": the alert has ended."
-    var replace = root.noticeId > 0 ? " --replace-id=" + root.noticeId : ""
-    root.run("/usr/bin/notify-send --print-id --app-name=Varta --icon=" + (raisedNow ? "security-low" : "security-high")
-             + " --urgency=" + (raisedNow ? "critical" : "normal") + replace + " -- " + root.quote(title) + " " + root.quote(body)
+  property int lostNoticeId: 0
+
+  // Notification bodies may be read as markup: what came from elsewhere is escaped.
+  function plain(text) { return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") }
+
+  // kind: alert | clear | test | test-over | lost | back
+  function notify(kind) {
+    var lostKind = kind === "lost" || kind === "back"
+    var texts = {
+      alert: ["ПОВІТРЯНА ТРИВОГА", root.region + " · take shelter. Unofficial: trust the siren and the official app.", "security-low", "critical"],
+      clear: ["Відбій тривоги", root.region + ": the alert has ended.", "security-high", "normal"],
+      test: ["ТЕСТ · ПОВІТРЯНА ТРИВОГА", "A test of the alert: no alert is in progress.", "security-low", "critical"],
+      "test-over": ["The test is over", "No alert was in progress.", "security-high", "low"],
+      lost: ["Varta is not watching", "It cannot see the feed: " + (root.trouble || "no reading for several minutes") + ". Check the official app.", "dialog-warning", "critical"],
+      back: ["Varta is watching again", root.region + ": the feed can be read again.", "security-high", "low"]
+    }[kind]
+    var current = lostKind ? root.lostNoticeId : root.noticeId
+    var replace = current > 0 ? " --replace-id=" + current : ""
+    root.run(root.desktopEnv + "/usr/bin/timeout 10 /usr/bin/notify-send --print-id --app-name=Varta --icon=" + texts[2]
+             + " --urgency=" + texts[3] + replace + " -- " + root.quote(texts[0]) + " " + root.quote(root.plain(texts[1]))
              + " # " + Date.now(), function (code, out) {
       var id = parseInt(out, 10)
-      root.noticeId = raisedNow && id > 0 ? id : 0
+      var keep = (kind === "alert" || kind === "test" || kind === "lost") && id > 0 ? id : 0
+      if (lostKind) root.lostNoticeId = keep; else root.noticeId = keep
     })
   }
 
@@ -301,7 +350,11 @@ PlasmoidItem {
   property string lostDismissed: ""
   property int lostEpisode: 0
   readonly property string lostKey: "lost:" + root.lostEpisode
-  onLostChanged: if (root.lost) root.lostEpisode++
+  onLostChanged: {
+    // A moment later, so the notice gives the reason the reading now carries.
+    if (root.lost) { root.lostEpisode++; Qt.callLater(function () { if (root.lost) root.notify("lost") }) }
+    else if (root.lostNoticeId > 0) root.notify("back")
+  }
   readonly property bool bandedLost: root.lost && root.lostDismissed !== root.lostKey
 
   function dismiss() {
@@ -318,10 +371,11 @@ PlasmoidItem {
     rehearsal.restart()
     root.said = 1
     root.say("alert", false)
-    root.notify(true)
+    root.notify("test")
   }
 
   Timer { id: rehearsal; interval: 20000; onTriggered: root.rehearsing = false }
+  onRehearsingChanged: if (!root.rehearsing && !root.announced) root.notify("test-over")
 
   Loader {
     active: root.banded || root.bandedLost
@@ -334,7 +388,10 @@ PlasmoidItem {
   readonly property bool ready: root.region !== ""
   readonly property bool settling: root.ready && root.health !== "ok" && !root.lost
 
-  Plasmoid.icon: !root.ready ? "security-medium" : root.raised ? "security-low" : root.lost ? "dialog-warning" : "security-high"
+  // The safe shield only for a clear reading the watch trusts: starting up, waking from sleep or reconnecting is not
+  // "calm".
+  Plasmoid.icon: !root.ready ? "security-medium" : root.raised ? "security-low" : root.lost ? "dialog-warning"
+               : root.calm ? "security-high" : "security-medium"
   Plasmoid.status: root.raised || root.lost ? PlasmaCore.Types.NeedsAttentionStatus : PlasmaCore.Types.ActiveStatus
 
   toolTipMainText: "Varta"
@@ -346,7 +403,7 @@ PlasmoidItem {
       return "Pick your region in the panel"
     }
     if (root.raised) return "ПОВІТРЯНА ТРИВОГА · " + root.region + "\nUnofficial: trust the siren and the official app"
-    if (root.watching) {
+    if (root.calm) {
       var line = "Clear in " + root.region
       for (var i = 0; i < root.alsoState.length; i++)
         line += "\n" + (root.alsoState[i].alert === true ? "ПОВІТРЯНА ТРИВОГА · " : "clear · ") + root.alsoState[i].region

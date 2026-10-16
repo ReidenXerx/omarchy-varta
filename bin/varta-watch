@@ -70,6 +70,8 @@ def claim(state: pathlib.Path) -> int | None:
     info = os.lstat(state.parent)
     if not os.path.isdir(state.parent) or os.path.islink(state.parent) or info.st_uid != os.getuid():
         raise SystemExit(f"{state.parent} is not a private directory of ours")
+    if info.st_mode & 0o077:
+        os.chmod(state.parent, 0o700)    # ours, but someone else could read it: close it
     fd = os.open(f"{state}.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -212,6 +214,11 @@ def run(region: str, others: tuple[str, ...], every: int, once: bool,
         # the end of an alert that may still be running.
         snap_at = dt.datetime.now(dt.timezone.utc)
         line = watch.snapshot(snap_at)
+        # A place the feed does not have can never be under alert in it, so it would read "clear" for ever: a
+        # misspelt setting or a renamed region must say it cannot see, never that it is calm.
+        if known and region not in known:
+            line.update(health="blind", alert=None, since=None,
+                        error="this region is not in the feed -- choose it again from the list")
         if line.get("alert") is not None:
             changes = [t for t in (
                 [ledger.observe(line.get("region", ""), bool(line["alert"]), snap_at)]
