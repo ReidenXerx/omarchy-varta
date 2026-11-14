@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key>
+  <string>Varta</string>
+  <key>CFBundleDisplayName</key>
+  <string>Varta</string>
+  <key>CFBundleExecutable</key>
+  <string>$(EXECUTABLE_NAME)</string>
+  <!-- Notifications permission and the login item are keyed to this.
+       Changing it resets both for every user. -->
+  <key>CFBundleIdentifier</key>
+  <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>$(MARKETING_VERSION)</string>
+  <key>CFBundleVersion</key>
+  <string>$(CURRENT_PROJECT_VERSION)</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>14.0</string>
+  <key>LSApplicationCategoryType</key>
+  <string>public.app-category.utilities</string>
+  <!-- Menu bar app: no Dock icon, no main window. -->
+  <key>LSUIElement</key>
+  <true/>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+  <!-- Shared with the widget: history and the snapshot it shows. -->
+  <key>VartaAppGroup</key>
+  <string>$(TeamIdentifierPrefix)app.duduphudu.varta</string>
+  <key>NSLocationUsageDescription</key>
+  <string>Varta uses your location once to find which oblast to watch. Pick your region in Settings and it is never asked.</string>
+  <key>NSLocationWhenInUseUsageDescription</key>
+  <string>Varta uses your location once to find which oblast to watch. Pick your region in Settings and it is never asked.</string>
+  <!-- The IP fallback (bin/varta-locate's second source) is HTTP-only on its
+       free tier. Its answer is only believed when ipwho.is, over HTTPS, agrees. -->
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSExceptionDomains</key>
+    <dict>
+      <key>ip-api.com</key>
+      <dict>
+        <key>NSExceptionAllowsInsecureHTTPLoads</key>
+        <true/>
+      </dict>
+    </dict>
+  </dict>
+</dict>
+</plist>

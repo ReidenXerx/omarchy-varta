@@ -1,0 +1,82 @@
+# Generates Varta.xcodeproj:  xcodegen generate
+# The .xcodeproj is a build artifact of this file; edit this, not the project.
+name: Varta
+options:
+  bundleIdPrefix: app.duduphudu
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+packages:
+  VartaCore:
+    path: .
+settings:
+  base:
+    DEVELOPMENT_TEAM: B3MH39XT49
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "6.0"
+    ENABLE_HARDENED_RUNTIME: YES
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  Varta:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources/VartaApp
+      # The same struck-tone sounds as the Linux widget (tools/make_sounds.py).
+      - path: ../assets
+        name: Sounds
+        includes: ["*.wav"]
+        buildPhase: resources
+    dependencies:
+      - package: VartaCore
+        product: VartaCore
+      - target: VartaWidget
+    entitlements:
+      path: Resources/Varta.entitlements
+      properties:
+        # Lets an alert, and "not watching", break through Focus once the user
+        # allows it. Without it macOS reports time-sensitive as not supported.
+        com.apple.developer.usernotifications.time-sensitive: true
+        # The hardened runtime blocks Core Location without this.
+        com.apple.security.personal-information.location: true
+        # Team-prefixed, so macOS needs no portal registration for it.
+        com.apple.security.application-groups:
+          - $(TeamIdentifierPrefix)app.duduphudu.varta
+    settings:
+      base:
+        PRODUCT_NAME: Varta
+        PRODUCT_BUNDLE_IDENTIFIER: app.duduphudu.varta
+        INFOPLIST_FILE: Resources/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+
+  VartaWidget:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: Sources/VartaWidget
+    dependencies:
+      - package: VartaCore
+        product: VartaCore
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    info:
+      path: Resources/Widget-Info.plist
+      properties:
+        CFBundleDisplayName: Varta
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        VartaAppGroup: $(TeamIdentifierPrefix)app.duduphudu.varta
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Resources/VartaWidget.entitlements
+      properties:
+        # Widgets must be sandboxed; the group is how it reads the app's snapshot.
+        com.apple.security.app-sandbox: true
+        com.apple.security.application-groups:
+          - $(TeamIdentifierPrefix)app.duduphudu.varta
+    settings:
+      base:
+        PRODUCT_NAME: VartaWidget
+        PRODUCT_BUNDLE_IDENTIFIER: app.duduphudu.varta.widget
