@@ -1,5 +1,5 @@
 # Homebrew cask for Varta, filled in by scripts/release.sh.
-#   brew install --cask reidenxerx/tap/varta
+#   brew tap reidenxerx/tap && brew trust reidenxerx/tap && brew install --cask varta
 cask "varta" do
   version "@VERSION@"
   sha256 "@SHA256@"
@@ -11,7 +11,7 @@ cask "varta" do
 
   # Sparkle updates the app itself; brew should not fight it.
   auto_updates true
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
 
   app "Varta.app"
 

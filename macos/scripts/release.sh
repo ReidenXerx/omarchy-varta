@@ -18,6 +18,10 @@
 #   xcrun notarytool store-credentials <profile> --apple-id <email> --team-id <TEAM> --password <app-specific>
 # VARTA_NOTARY_PROFILE picks the profile (default whiz-notary).
 #
+# The update feed is read from the repo's *latest* release. Linux releases of
+# the plugin, if it ever gets any, must be published with --latest=false, or
+# every installed Mac copy will look for appcast.xml in the wrong release.
+#
 # The Sparkle key lives in the login keychain (account app.duduphudu.varta),
 # with a backup at ~/.config/varta-sparkle/update-signing.key. Lose both and
 # installed copies can no longer be updated. Restore the backup with
@@ -95,4 +99,4 @@ ls -1 "$OUT" | sed 's/^/  /'
 echo
 echo "To publish:"
 echo "  gh release create v$VERSION '$DMG' '$OUT/appcast.xml' --repo $REPO --title 'Varta $VERSION for Mac'"
-echo "  then copy $OUT/varta.rb to Casks/varta.rb in the Homebrew tap"
+echo "  then copy $OUT/varta.rb to Casks/varta.rb in github.com/ReidenXerx/homebrew-tap"
