@@ -48,6 +48,7 @@ final class Varta {
     private let notifier = Notifier()
     private let store = Store()
     private let locator = Locator()
+    let updater = Updater()
     private var sound: NSSound?
 
     init() {

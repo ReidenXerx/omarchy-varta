@@ -164,6 +164,12 @@ struct MenuView: View {
             } else {
                 Button("Test the alert") { varta.rehearse() }
             }
+            if varta.updater.available {
+                Button("Check for Updates…") {
+                    NSApp.activate()
+                    varta.updater.check()
+                }
+            }
             Button("Settings…") {
                 openWindow(id: "settings")
                 NSApp.activate()

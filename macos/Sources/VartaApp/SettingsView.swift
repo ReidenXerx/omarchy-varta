@@ -6,6 +6,7 @@ import VartaCore
 struct SettingsView: View {
     @Bindable var varta: Varta
     @State private var atLogin = false
+    @State private var autoUpdate = false
 
     var body: some View {
         Form {
@@ -48,6 +49,10 @@ struct SettingsView: View {
             Section {
                 Toggle("Open at login", isOn: $atLogin)
                     .onChange(of: atLogin) { _, on in varta.opensAtLogin = on }
+                if varta.updater.available {
+                    Toggle("Check for updates automatically", isOn: $autoUpdate)
+                        .onChange(of: autoUpdate) { _, on in varta.updater.automaticallyChecks = on }
+                }
             } footer: {
                 Text("Varta is a companion to the official app and to the sirens outside, not a replacement for either, and not an official source.")
             }
@@ -55,6 +60,9 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 440)
         .frame(minHeight: 520)
-        .onAppear { atLogin = varta.opensAtLogin }
+        .onAppear {
+            atLogin = varta.opensAtLogin
+            autoUpdate = varta.updater.automaticallyChecks
+        }
     }
 }

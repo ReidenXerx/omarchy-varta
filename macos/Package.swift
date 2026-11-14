@@ -3,16 +3,16 @@ import PackageDescription
 
 // Varta for macOS.
 //
-// Two targets on purpose. `VartaCore` is the port of app/watchcore.py and
-// app/regions.py: pure logic over a clock, no networking, no UI, so the rules
-// that decide "calm" versus "not watching" are tested without a feed. `VartaApp`
-// is the menu bar app around it.
+// `VartaCore` is the port of app/watchcore.py, app/regions.py and
+// app/history.py: pure logic over a clock, no networking, no UI, so the rules
+// that decide "calm" versus "not watching" are tested without a feed
+// (`swift test`).
 //
 // The app itself is built by Varta.xcodeproj (generated from project.yml by
 // XcodeGen), because time-sensitive notifications need an entitlement backed by
 // a provisioning profile, and the V2 widget needs an app extension. Neither is
-// something SwiftPM can build. This package keeps the core and its tests, and
-// still compiles the app sources so `swift build` catches errors quickly.
+// something SwiftPM can build. This package is the core and its tests; the app
+// and widget sources are compiled by Xcode only.
 let package = Package(
     name: "Varta",
     // macOS 14: @Observable, and desktop widgets for V2. See the Mac Ports Plan.
@@ -24,11 +24,6 @@ let package = Package(
         .target(
             name: "VartaCore",
             path: "Sources/VartaCore"
-        ),
-        .executableTarget(
-            name: "VartaApp",
-            dependencies: ["VartaCore"],
-            path: "Sources/VartaApp"
         ),
         .testTarget(
             name: "VartaCoreTests",

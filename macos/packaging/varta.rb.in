@@ -1,0 +1,24 @@
+# Homebrew cask for Varta, filled in by scripts/release.sh.
+#   brew install --cask reidenxerx/tap/varta
+cask "varta" do
+  version "@VERSION@"
+  sha256 "@SHA256@"
+
+  url "https://github.com/ReidenXerx/omarchy-varta/releases/download/v#{version}/Varta-#{version}.dmg"
+  name "Varta"
+  desc "Air raid alerts for your oblast in the menu bar, loud when it stops watching"
+  homepage "https://github.com/ReidenXerx/omarchy-varta"
+
+  # Sparkle updates the app itself; brew should not fight it.
+  auto_updates true
+  depends_on macos: ">= :sonoma"
+
+  app "Varta.app"
+
+  zap trash: [
+    "~/Library/Group Containers/B3MH39XT49.app.duduphudu.varta",
+    "~/Library/Preferences/app.duduphudu.varta.plist",
+    "~/Library/Caches/app.duduphudu.varta",
+    "~/Library/HTTPStorages/app.duduphudu.varta",
+  ]
+end

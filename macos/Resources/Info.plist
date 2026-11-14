@@ -27,6 +27,14 @@
   <true/>
   <key>NSHighResolutionCapable</key>
   <true/>
+  <!-- Sparkle. The feed is a file on each GitHub release, so "latest" is
+       always the newest one; every update is checked against the public key
+       before it installs (the private half signs releases: scripts/release.sh).
+       Sparkle asks on the second launch whether to check automatically. -->
+  <key>SUFeedURL</key>
+  <string>https://github.com/ReidenXerx/omarchy-varta/releases/latest/download/appcast.xml</string>
+  <key>SUPublicEDKey</key>
+  <string>O3jzaQGIFSqEWHMKTiJQDNfm/U+rAfSmrNiL5jqHBfM=</string>
   <!-- Shared with the widget: history and the snapshot it shows. -->
   <key>VartaAppGroup</key>
   <string>$(TeamIdentifierPrefix)app.duduphudu.varta</string>

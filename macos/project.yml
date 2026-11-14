@@ -9,6 +9,11 @@ options:
 packages:
   VartaCore:
     path: .
+  # Updates for the download (the App Store build updates through the store).
+  # Pinned exactly, the same version Whiz ships.
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.10.0
 settings:
   base:
     DEVELOPMENT_TEAM: B3MH39XT49
@@ -23,6 +28,7 @@ targets:
     platform: macOS
     sources:
       - path: Sources/VartaApp
+      - path: Resources/Assets.xcassets
       # The same struck-tone sounds as the Linux widget (tools/make_sounds.py).
       - path: ../assets
         name: Sounds
@@ -32,6 +38,8 @@ targets:
       - package: VartaCore
         product: VartaCore
       - target: VartaWidget
+      - package: Sparkle
+        product: Sparkle
     entitlements:
       path: Resources/Varta.entitlements
       properties:
@@ -49,6 +57,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: app.duduphudu.varta
         INFOPLIST_FILE: Resources/Info.plist
         GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 
   VartaWidget:
     type: app-extension
